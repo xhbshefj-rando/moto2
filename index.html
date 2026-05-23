@@ -3,7 +3,7 @@
 <head> 
     <meta charset="utf-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-    <title>3D First-Person Pro Motocross</title> 
+    <title>3D First-Person Motocross Arcade</title> 
     <style> 
         * { 
             margin: 0; 
@@ -18,26 +18,189 @@
             font-family: 'Arial', sans-serif;
             user-select: none;
         } 
-        #canvas-container {
+        
+        /* 3D Core Horizon Viewport */
+        #game-viewport {
             width: 100%;
             height: 100%;
+            position: absolute;
+            overflow: hidden;
+            perspective: 350px; /* Forces real hardware 3D depth perspective */
+        }
+
+        /* Sky and Horizon background */
+        #sky-bg {
             position: absolute;
             top: 0;
             left: 0;
+            width: 100%;
+            height: 45%;
+            background: linear-gradient(to bottom, #020208, #1c112b);
+            border-bottom: 3px solid #ffaa00;
         }
-        #gameCanvas {
+
+        /* 3D Track Ground Plane */
+        #track-ground {
+            position: absolute;
+            bottom: 0;
+            left: -100%;
+            width: 300%;
+            height: 60%;
+            background: #4a250b; /* Bright high-contrast racing dirt */
+            transform-origin: top center;
+            transform: rotateX(70deg);
+            box-shadow: inset 0 20px 100px rgba(0,0,0,0.9);
+            overflow: hidden;
+            transition: background 0.2s;
+        }
+
+        /* Bright High-Contrast Speed Lanes (Guarantees visible moving elements) */
+        .grid-lane-stripe {
+            position: absolute;
+            width: 20px;
+            height: 160px;
+            background: #ffaa00; /* High visibility track guide markers */
+            left: 50%;
+            top: -160px;
+            transform: translateX(-50%);
+            box-shadow: 0 0 10px #ffaa00;
+        }
+
+        /* Real Dirt Bike Cockpit Overlay Node */
+        #bike-cockpit {
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            width: 620px;
+            height: 320px;
+            transform: translateX(-50%) rotate(0deg);
+            pointer-events: none;
+            z-index: 500;
+            transform-origin: bottom center;
+            transition: transform 0.05s linear;
+        }
+
+        /* Realistic Handlebars Architecture Details */
+        .metal-handlebars-bar {
+            position: absolute;
+            width: 540px;
+            height: 18px;
+            background: #444;
+            border: 3px solid #222;
+            left: 40px;
+            bottom: 120px;
+            border-radius: 9px;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.6);
+        }
+
+        .bar-pad-foam {
+            position: absolute;
+            width: 160px;
+            height: 28px;
+            background: #111;
+            border: 2px solid #ffaa00;
+            left: 230px;
+            bottom: 128px;
+            border-radius: 6px;
+            color: #fff;
+            font-family: monospace;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.5);
+        }
+
+        .rubber-hand-grip-left {
+            position: absolute;
+            width: 75px;
+            height: 28px;
+            background: #151515;
+            left: 40px;
+            bottom: 120px;
+            border-radius: 6px 0 0 6px;
+            border-left: 6px solid #ffaa00;
+            border-right: 3px solid #222;
+        }
+
+        .rubber-hand-grip-right {
+            position: absolute;
+            width: 75px;
+            height: 28px;
+            background: #151515;
+            right: 40px;
+            bottom: 120px;
+            border-radius: 0 6px 6px 0;
+            border-right: 6px solid #ffaa00;
+            border-left: 3px solid #222;
+        }
+
+        .racing-number-plate {
+            position: absolute;
+            width: 140px;
+            height: 130px;
+            background: #ff6600; /* Custom Paint Variant */
+            bottom: 0;
+            left: 240px;
+            border-radius: 40px 40px 10px 10px;
+            border: 5px solid #151515;
+            box-shadow: 0 -10px 25px rgba(0,0,0,0.7);
+            overflow: hidden;
+            transition: background 0.3s;
+        }
+
+        .lcd-race-dash {
+            position: absolute;
+            width: 100px;
+            height: 40px;
+            background: #08080f;
+            bottom: 15px;
+            left: 15px;
+            border-radius: 4px;
+            border: 2px solid #333;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ffcc;
+            font-family: monospace;
+            font-size: 11px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #00ffcc;
+        }
+
+        /* Overlay UI panels configuration styles */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            display: block;
+            z-index: 1000;
+            pointer-events: none;
         }
-        /* Config Overlay Panel */
-        .ui-panel {
+
+        .speedometer-hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #ffaa00;
+            font-size: 1.8em;
+            font-weight: bold;
+            font-family: monospace;
+            background: rgba(0,0,0,0.8);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,170,0,0.4);
+            text-shadow: 0 0 10px rgba(255,170,0,0.5);
+        }
+
+        .options-btn {
             position: absolute;
             top: 20px;
             right: 20px;
-            z-index: 1000;
-        }
-        .settings-btn {
+            pointer-events: auto;
             background: rgba(255, 170, 0, 0.2);
             border: 2px solid #ffaa00;
             color: #ffaa00;
@@ -49,42 +212,62 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .settings-btn:hover {
+
+        .options-btn:hover {
             background: #ffaa00;
             color: #000;
             box-shadow: 0 0 15px #ffaa00;
         }
-        .menu-box {
+
+        .menu-overlay-panel {
             position: absolute;
-            top: 50px;
-            right: 0;
-            width: 280px;
-            background: rgba(15, 15, 25, 0.98);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 350px;
+            background: rgba(10, 10, 20, 0.98);
             border: 2px solid #ffaa00;
-            border-radius: 10px;
-            padding: 20px;
+            border-radius: 12px;
+            padding: 25px;
             color: #fff;
             display: none;
-            box-shadow: 0 0 30px rgba(255, 170, 0, 0.4);
+            box-shadow: 0 0 40px rgba(255, 170, 0, 0.5);
+            pointer-events: auto;
         }
-        .menu-box.active {
+
+        .menu-overlay-panel.active {
             display: block;
         }
-        .menu-box h3 {
+
+        .menu-overlay-panel h3 {
             text-align: center;
             color: #ffaa00;
-            margin-bottom: 15px;
-            font-size: 1.2em;
+            margin-bottom: 20px;
             text-transform: uppercase;
+            font-size: 1.3em;
         }
-        .btn-group {
+
+        .config-row {
+            margin-bottom: 15px;
+        }
+
+        .config-row label {
+            display: block;
+            font-size: 0.75em;
+            color: #aaa;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        .opt-flex {
             display: flex;
             gap: 5px;
-            margin-bottom: 15px;
         }
-        .opt-btn {
+
+        .selection-btn {
             flex: 1;
-            padding: 8px 4px;
+            padding: 10px 4px;
             background: rgba(255,255,255,0.05);
             border: 1px solid #444;
             color: #fff;
@@ -94,176 +277,66 @@
             font-weight: bold;
             text-align: center;
         }
-        .opt-btn.selected {
+
+        .selection-btn.selected {
             background: rgba(255, 170, 0, 0.25);
             border-color: #ffaa00;
             color: #ffaa00;
         }
-        .hint-text {
+
+        .close-panel-btn {
+            width: 100%;
+            padding: 12px;
+            background: #ffaa00;
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .hint-card {
             position: absolute;
             bottom: 20px;
             left: 20px;
             color: rgba(255, 255, 255, 0.6);
             font-size: 0.85em;
-            background: rgba(0,0,0,0.75);
+            background: rgba(0,0,0,0.8);
             padding: 10px 15px;
             border-radius: 6px;
             pointer-events: none;
-            line-height: 1.5;
+            line-height: 1.4;
             border: 1px solid rgba(255, 170, 0, 0.2);
         }
     </style>
 </head> 
 <body>
 
-    <div id="canvas-container">
-        <canvas id="gameCanvas"></canvas>
-    </div>
-
-    <!-- UI Overlay Config -->
-    <div class="ui-panel">
-        <button class="settings-btn" onclick="toggleMenu()">Bike Setup</button>
-        <div class="menu-box" id="settingsMenu">
-            <h3>Bike Customizer</h3>
+    <!-- 100% Safe Native CSS Element Viewport (Zero Drawing Scripts Needed to Load Scene Layouts) -->
+    <div id="game-viewport">
+        <div id="sky-bg"></div>
+        <div id="track-ground">
+            <!-- Continuous Lane Guidelines built programmatically inside loop blocks below -->
+        </div>
+        
+        <!-- Hardware Textured Pro Motocross Handlebar Cockpit -->
+        <div id="bike-cockpit">
+            <div class="metal-handlebars-bar"></div>
+            <div class="rubber-hand-grip-left"></div>
+            <div class="rubber-hand-grip-right"></div>
+            <div class="bar-pad-foam">PRO GRAPHICS 3D</div>
             
-            <div style="margin-bottom: 10px;">
-                <label style="display:block; font-size:0.75em; color:#aaa; margin-bottom:4px; font-weight:bold;">TRACK BIOME</label>
-                <div class="btn-group">
-                    <button class="opt-btn selected" id="env-dirt" onclick="setBiome('dirt')">Red Clay</button>
-                    <button class="opt-btn" id="env-street" onclick="setBiome('street')">Supercross</button>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 10px;">
-                <label style="display:block; font-size:0.75em; color:#aaa; margin-bottom:4px; font-weight:bold;">FAIRING GRAPHICS</label>
-                <div class="btn-group">
-                    <button class="opt-btn selected" id="col-orange" onclick="setColor('#ff6600', 'orange')">Orange</button>
-                    <button class="opt-btn" id="col-green" onclick="setColor('#33cc33', 'green')">Green</button>
-                    <button class="opt-btn" id="col-blue" onclick="setColor('#0066ff', 'blue')">Blue</button>
-                </div>
-            </div>
-
-            <div>
-                <label style="display:block; font-size:0.75em; color:#aaa; margin-bottom:4px; font-weight:bold;">ENGINE TIER</label>
-                <div class="btn-group">
-                    <button class="opt-btn selected" id="pow-250" onclick="setEngine('normal')">250cc 4-Stroke</button>
-                    <button class="opt-btn" id="pow-450" onclick="setEngine('monster')">450cc Factory</button>
+            <div class="racing-number-plate" id="bike-plate">
+                <div class="lcd-race-dash">
+                    <div id="dash-mph">0 MPH</div>
+                    <div id="dash-rpm" style="color: #ffaa00; font-size: 8px; margin-top: 4px;">RPM: 0</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="hint-text">
-        <strong>Controls:</strong> Hold <strong>W</strong> or <strong>Up Arrow</strong> to roll on the throttle.<br>
-        Hold <strong>A / D</strong> or <strong>Left / Right Arrows</strong> to turn and lean deep into curves.<br>
-        Press <strong>R</strong> to reset your bike positioning immediately.
-    </div>
-
-    <script>
-        // --- Core Setup Elements ---
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        let isMenuOpen = false;
-        let biomeType = 'dirt';
-        let bikeClass = 'normal';
-        let fairingColor = '#ff6600'; // Default Factory Racing Orange
-
-        // --- Physics & Track Generation state variables ---
-        let speed = 0;
-        let topSpeed = 24;
-        let distanceTraveled = 0;
-        let lateralOffset = 0; 
-        let trackCurve = 0;
-        
-        // --- Leaning Interpolators ---
-        let targetLeanAngle = 0;
-        let interpolatedLean = 0;
-
-        // --- Unified Keyboard Input Array ---
-        const inputs = { w: false, s: false, a: false, d: false, arrowup: false, arrowdown: false, arrowleft: false, arrowright: false };
-
-        window.addEventListener('keydown', (e) => {
-            if (isMenuOpen) return;
-            const key = e.key.toLowerCase();
-            if (key === 'r') { resetState(); return; }
-            if (inputs.hasOwnProperty(key)) inputs[key] = true;
-        });
-
-        window.addEventListener('keyup', (e) => {
-            const key = e.key.toLowerCase();
-            if (inputs.hasOwnProperty(key)) inputs[key] = false;
-        });
-
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.addEventListener('resize', resizeCanvas);
-
-        // --- Graphics & Physics Processing Loop Engine ---
-        function renderLoop() {
-            requestAnimationFrame(renderLoop);
-
-            if (isMenuOpen) return;
-
-            // Handle Input Processing
-            const gas = inputs.w || inputs.arrowup;
-            const brake = inputs.s || inputs.arrowdown;
-            const turnLeft = inputs.a || inputs.arrowleft;
-            const turnRight = inputs.d || inputs.arrowright;
-
-            // 1. Motocross Physics & Power Vectors
-            const throttlePower = (bikeClass === 'monster') ? 0.40 : 0.24;
-            if (gas) {
-                speed = Math.min(speed + throttlePower, topSpeed);
-            } else if (brake) {
-                speed = Math.max(speed - 0.7, 0);
-            } else {
-                speed *= 0.95; // Mechanical engine-braking friction drag drop
-            }
-
-            distanceTraveled += speed;
-
-            // Continuous complex curve wave math to build an organic track layout
-            trackCurve = Math.sin(distanceTraveled * 0.001) * 2.6 + Math.cos(distanceTraveled * 0.0004) * 1.6;
-
-            // 2. Pro Cockpit Lean Simulation Math
-            targetLeanAngle = 0;
-            if (turnLeft && speed > 0.5) {
-                lateralOffset -= speed * 0.16;
-                targetLeanAngle = -26; // Complete 26-degree handlebar layout pivot slant
-            } else if (turnRight && speed > 0.5) {
-                lateralOffset += speed * 0.16;
-                targetLeanAngle = 26;
-            }
-
-            // Continuous drift (Track curves drag your alignment sideways)
-            lateralOffset -= (trackCurve * speed * 0.045);
-
-            // Interpolate leaning angles smoothly (Eliminates jarring frame skips)
-            interpolatedLean = interpolatedLean * 0.82 + targetLeanAngle * 0.18;
-
-            // Handle bar vibrations relative to engine speed
-            let vibeX = 0, vibeY = 0;
-            if (speed > 1) {
-                const shakeRatio = (speed / topSpeed);
-                vibeX = (Math.random() - 0.5) * (14 * shakeRatio);
-                vibeY = (Math.random() - 0.5) * (8 * shakeRatio);
-            }
-
-            // --- DRAWING PIPELINE ---
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const horizonHeightY = canvas.height * 0.45; // Lower horizon for enhanced 3D depth
-
-            // A. Render Sky Background Gradient
-            const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonHeightY);
-            if (biomeType === 'dirt') {
-                skyGrad.addColorStop(0, '#040201'); skyGrad.addColorStop(1, '#24140a'); // Sunset desert sky
-            } else {
-                skyGrad.addColorStop(0, '#010408'); skyGrad.addColorStop(1, '#0e1a2b'); // Night arena sky
-            }
-            ctx.fillStyle = skyGrad;
-            ctx.fillRect(0, 0, canvas.width, horizonHeightY);
-
-            // Draw Mountain Ranges Background
+    <!-- UI Overlay Panels Framework -->
+    <div class="ui-layer">
