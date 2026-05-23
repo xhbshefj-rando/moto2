@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Browser Motocross Sim</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top:0; left:0; z-index: 1; }
+        #ui { position: absolute; top: 20px; left: 20px; color: white; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; }
+        h1 { margin: 0 0 5px 0; font-size: 24px; }
+        p { margin: 5px 0; font-size: 14px; }
+        .controls { margin-top: 15px; font-size: 12px; opacity: 0.9; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; }
+    </style>
+    
+    <!-- Old-School Universal Global Library Injection (Guarantees Global THREE Object) -->
+    <script src="https://cloudflare.com"></script>
+</head>
+<body>
+    <div id="ui">
+        <h1>3D MOTO SIM</h1>
+        <p>Speed: <span id="speed">0</span> km/h</p>
+        <p>Airtime: <span id="airtime">0.0</span>s</p>
+        <div class="controls">
+            <b>W / S</b> : Throttle / Brake<br>
+            <b>A / D</b> : Steering<br>
+            <b>Arrow Up / Down</b> : Air Pitch Control
+        </div>
+    </div>
+    <div id="canvas-container"></div>
+
+    <script>
+        // Check if the script loaded properly. If it didn't, provide a warning.
+        if (typeof THREE === 'undefined') {
+            document.body.innerHTML = "<h2 style='color:white; padding:20px;'>Error: Three.js library was blocked by your network. Open your browser console (F12) to see details.</h2>";
+        }
+
+        // --- SIMULATION DATA ---
+        var bike = {
+            x: 0, y: 15, z: 0,
+            vx: 0, vy: 0, vz: 0,
+            speed: 0, heading: 0, pitch: 0, roll: 0,
+            isGrounded: false, airTime: 0
+        };
+
+        var CONTROLS = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false };
+        var GRAVITY = 0.22;
+        var ACCELERATION = 0.12;
+        var MAX_SPEED = 1.4;
+        var FRICTION = 0.02;
+        var TRACK_SIZE = 1000;
+
+        // --- SCENE SETUP ---
+        var container = document.getElementById('canvas-container');
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.FogExp2(0x87CEEB, 0.004);
+
+        var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1500);
+        var renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        // --- LIGHTING ---
+        var ambient = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambient);
+        var sunLight = new THREE.DirectionalLight(0xfffaed, 1.2);
+        sunLight.position.set(150, 400, 100);
+        scene.add(sunLight);
+
+        // --- GENERATE TRACK TERRAIN ---
+        var terrainGeo = new THREE.PlaneGeometry(TRACK_SIZE, TRACK_SIZE, 80, 80);
+        terrainGeo.rotateX(-Math.PI / 2); 
+
+        var positions = terrainGeo.attributes.position;
+        for (var i = 0; i < positions.count; i++) {
+            var x = positions.getX(i);
+            var z = positions.getZ(i);
+            
+            // Track Elevations & Large Scale Supercross Style Jumps
+            var height = Math.sin(x * 0.015) * Math.cos(z * 0.015) * 12;
+            height += Math.sin(z * 0.15) * Math.cos(x * 0.05) * 1.5; // Whoops sections
+            
+            if (z > 40 && z < 160 && Math.abs(x) < 50) {
+                height += Math.sin((z - 40) * Math.PI / 120) * 20; 
+            }
+
+            positions.setY(i, height);
+        }
+        terrainGeo.computeVertexNormals();
+
+        var terrainMat = new THREE.MeshStandardMaterial({ 
+            color: 0x9f5f3f, 
+            roughness: 0.9,
+            flatShading: true 
+        });
+        var terrain = new THREE.Mesh(terrainGeo, terrainMat);
+        scene.add(terrain);
+
+        // --- BUILD 3D BIKE ---
+        var bikeGroup = new THREE.Group();
+        
+        var chassis = new THREE.Mesh(
+            new THREE.BoxGeometry(0.35, 0.5, 1.4),
+            new THREE.MeshStandardMaterial({ color: 0x111111 })
+        );
+        chassis.position.y = 0.5;
+        bikeGroup.add(chassis);
+
+        var fairings = new THREE.Mesh(
+            new THREE.BoxGeometry(0.4, 0.25, 1.2),
+            new THREE.MeshStandardMaterial({ color: 0xff4500 }) // Red-Orange Moto plastics
+        );
+        fairings.position.set(0, 0.75, -0.1);
+        bikeGroup.add(fairings);
+
+        var forkGroup = new THREE.Group();
+        var forks = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.04, 0.04, 1.1),
+            new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.5 })
+        );
+        forks.position.set(0, 0.5, 0.6);
+        forks.rotation.x = 0.25; 
+        forkGroup.add(forks);
+        bikeGroup.add(forkGroup);
+
+        var tireGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.28, 12);
+        tireGeo.rotateZ(Math.PI / 2);
+        var tireMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1.0 });
+
+        var frontWheel = new THREE.Mesh(tireGeo, tireMat);
+        frontWheel.position.set(0, 0.45, 0.8);
+        bikeGroup.add(frontWheel);
+
+        var rearWheel = new THREE.Mesh(tireGeo, tireMat);
+        rearWheel.position.set(0, 0.45, -0.8);
+        bikeGroup.add(rearWheel);
+
+        scene.add(bikeGroup);
+
+        // --- COLLISION HEIGHT MAPPING ---
+        function getTrackHeight(bikeX, bikeZ) {
+            var half = TRACK_SIZE / 2;
+            var gridCells = 80;
+            var spacing = TRACK_SIZE / gridCells;
+            
+            var xCell = Math.floor((bikeX + half) / spacing);
+            var zCell = Math.floor((bikeZ + half) / spacing);
+            
+            if(xCell < 0 || xCell >= gridCells || zCell < 0 || zCell >= gridCells) return 0;
+            
+            var index = (zCell * (gridCells + 1)) + xCell;
+            if(index >= 0 && index < positions.count) {
+                return positions.getY(index);
+            }
+            return 0;
+        }
+
+        // --- CONTROLS LISTENERS ---
+        window.addEventListener('keydown', function(e) { if(e.key in CONTROLS) CONTROLS[e.key] = true; });
+        window.addEventListener('keyup', function(e) { if(e.key in CONTROLS) CONTROLS[e.key] = false; });
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        var speedUI = document.getElementById('speed');
+        var airtimeUI = document.getElementById('airtime');
+
+        // --- GAME LOOP ---
+        function loop() {
+            requestAnimationFrame(loop);
+
+            // Bike Steering
+            if (CONTROLS.a) {
+                if (bike.isGrounded) bike.heading += 0.025 * (bike.speed / MAX_SPEED + 0.2);
+                bike.roll = THREE.MathUtils.lerp(bike.roll, 0.35, 0.1);
+            } else if (CONTROLS.d) {
+                if (bike.isGrounded) bike.heading -= 0.025 * (bike.speed / MAX_SPEED + 0.2);
+                bike.roll = THREE.MathUtils.lerp(bike.roll, -0.35, 0.1);
+            } else {
+                bike.roll = THREE.MathUtils.lerp(bike.roll, 0, 0.15);
+            }
+
+            // Physics Airborne Lean Control
+            if (!bike.isGrounded) {
+                if (CONTROLS.ArrowUp) bike.pitch -= 0.035;
+                if (CONTROLS.ArrowDown) bike.pitch += 0.035;
+            }
+
+            // Throttle Modifiers
+            if (CONTROLS.w) {
+                bike.speed = Math.min(bike.speed + ACCELERATION, MAX_SPEED);
+            } else if (CONTROLS.s) {
+                bike.speed = Math.max(bike.speed - ACCELERATION * 1.3, -MAX_SPEED * 0.25);
+            } else {
+                bike.speed = THREE.MathUtils.lerp(bike.speed, 0, FRICTION);
+            }
+
+            // Gravity & Vectors Acceleration
+            if (bike.isGrounded) {
+                bike.vx = Math.sin(bike.heading) * bike.speed;
+                bike.vz = Math.cos(bike.heading) * bike.speed;
+                bike.vy = 0;
+            } else {
+                bike.vy -= GRAVITY * 0.12; 
+            }
+
+            bike.x += bike.vx;
+            bike.y += bike.vy;
+            bike.z += bike.vz;
+
+            // Ground Floor Check
+            var currentGround = getTrackHeight(bike.x, bike.z);
+            var groundClearance = 0.45;
+
+            if (bike.y <= currentGround + groundClearance) {
+                bike.y = currentGround + groundClearance;
+                
+                var forwardHeight = getTrackHeight(bike.x + Math.sin(bike.heading)*2, bike.z + Math.cos(bike.heading)*2);
+                var surfaceSlope = Math.atan2(currentGround - forwardHeight, 2);
+                
+                bike.pitch = THREE.MathUtils.lerp(bike.pitch, surfaceSlope, 0.25);
+                bike.isGrounded = true;
+                bike.airTime = 0;
+            } else {
+                bike.isGrounded = false;
+                bike.airTime += 1 / 60;
+            }
+
+            // Map Bounds
+            var limit = TRACK_SIZE / 2 - 20;
+            bike.x = Math.max(-limit, Math.min(limit, bike.x));
+            bike.z = Math.max(-limit, Math.min(limit, bike.z));
+
+            // Apply transformations to layout
+            bikeGroup.position.set(bike.x, bike.y, bike.z);
+            bikeGroup.rotation.set(0, 0, 0); 
+            bikeGroup.rotateY(bike.heading + Math.PI); 
+            bikeGroup.rotateX(bike.pitch);
+            bikeGroup.rotateZ(bike.roll);
+
+            // Camera calculations
+            var targetCamX = bike.x - Math.sin(bike.heading) * 7.5;
+            var targetCamZ = bike.z - Math.cos(bike.heading) * 7.5;
+            var targetCamY = bike.y + 3.2;
+
