@@ -3,7 +3,7 @@
 <head> 
     <meta charset="utf-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-    <title>First Person 3D Moto Sim</title> 
+    <title>3D First Person Moto Pro</title> 
     <style> 
         * { 
             margin: 0; 
@@ -15,118 +15,90 @@
             height: 100%;
             overflow: hidden;
             font-family: 'Arial', sans-serif; 
-            background: #070714;
+            background: #05050f;
             user-select: none;
         } 
-        
         #game-container {
             width: 100%;
             height: 100%;
             position: absolute;
             overflow: hidden;
         }
-
-        /* 3D Sky Backdrop Canvas */
-        #sky-bg {
-            position: absolute;
-            top: 0;
-            left: 0;
+        /* High-Performance Rendering Surface */
+        #gameCanvas {
             width: 100%;
-            height: 50%;
-            background: linear-gradient(to bottom, #020208, #11112b);
-            overflow: hidden;
+            height: 100%;
+            display: block;
         }
-
-        /* Dynamic Horizon Sun / Moon Aura Glow */
-        #horizon-glow {
-            position: absolute;
-            bottom: -50px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 400px;
-            height: 100px;
-            background: radial-gradient(circle, rgba(0, 212, 255, 0.3) 0%, rgba(0,0,0,0) 70%);
-        }
-
-        /* Hardware Accelerated Rendering Field for Pseudo-3D Track Segments */
-        #render-surface {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 50%;
-            background: #1e120a; /* Fallback Base Dirt */
-            overflow: hidden;
-        }
-
-        /* 1st Person Cockpit View Handlebars & Dashboard UI overlay */
+        /* 1st Person Cockpit Handlebars Overlay Layer */
         #cockpit-view {
             position: absolute;
-            bottom: -20px;
+            bottom: -10px;
             left: 50%;
-            width: 500px;
-            height: 300px;
+            width: 600px;
+            height: 320px;
             transform: translateX(-50%);
             pointer-events: none;
             z-index: 500;
-            transition: transform 0.05s ease;
+            transform-origin: bottom center;
+            transition: transform 0.04s linear;
         }
-
         .handlebar-left {
             position: absolute;
-            width: 180px;
-            height: 25px;
-            background: #222;
-            border: 4px solid #444;
-            left: 20px;
-            bottom: 120px;
-            transform: rotate(15deg);
-            border-radius: 10px 0 0 10px;
+            width: 220px;
+            height: 28px;
+            background: #1e1e1e;
+            border: 4px solid #333;
+            left: 10px;
+            bottom: 140px;
+            transform: rotate(12deg);
+            border-radius: 12px 0 0 12px;
+            box-shadow: -5px 10px 10px rgba(0,0,0,0.5);
         }
-
         .handlebar-right {
             position: absolute;
-            width: 180px;
-            height: 25px;
-            background: #222;
-            border: 4px solid #444;
-            right: 20px;
-            bottom: 120px;
-            transform: rotate(-15deg);
-            border-radius: 0 10px 10px 0;
+            width: 220px;
+            height: 28px;
+            background: #1e1e1e;
+            border: 4px solid #333;
+            right: 10px;
+            bottom: 140px;
+            transform: rotate(-12deg);
+            border-radius: 0 12px 12px 0;
+            box-shadow: 5px 10px 10px rgba(0,0,0,0.5);
         }
-
         .bike-fairing-center {
             position: absolute;
-            width: 160px;
-            height: 140px;
-            background: #00d4ff; /* Custom Paint Panel */
+            width: 180px;
+            height: 160px;
+            background: #00d4ff; /* Custom Trim Variant Paint */
             bottom: 0;
-            left: 170px;
-            border-radius: 50px 50px 0 0;
-            border: 5px solid #111;
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.6);
+            left: 210px;
+            border-radius: 60px 60px 0 0;
+            border: 6px solid #1a1a1a;
+            box-shadow: 0 -15px 30px rgba(0,0,0,0.7);
             overflow: hidden;
+            transition: background 0.3s;
         }
-
         .digital-dash {
             position: absolute;
             width: 100%;
-            height: 60px;
-            background: #111;
+            height: 65px;
+            background: #0f0f15;
             bottom: 0;
-            border-top: 3px solid #333;
+            border-top: 4px solid #252530;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             color: #00d4ff;
             font-family: monospace;
             font-weight: bold;
-            font-size: 1.2em;
+            font-size: 1.1em;
             text-shadow: 0 0 5px #00d4ff;
+            line-height: 1.3;
         }
-
-        /* Custom UI HUD Overlays */
+        /* HUD Panel UI */
         .ui-layer {
             position: absolute;
             top: 0;
@@ -136,8 +108,7 @@
             z-index: 1000;
             pointer-events: none;
         }
-
-        .hud-display {
+        .hud-panel {
             position: absolute;
             top: 20px;
             left: 20px;
@@ -145,13 +116,12 @@
             font-size: 1.8em;
             font-weight: bold;
             font-family: monospace;
-            background: rgba(0,0,0,0.75);
+            background: rgba(0,0,0,0.8);
             padding: 12px 25px;
             border-radius: 8px;
             border: 1px solid rgba(0,212,255,0.4);
             text-shadow: 0 0 8px rgba(0,212,255,0.6);
         }
-
         .settings-btn {
             position: absolute;
             top: 20px;
@@ -168,22 +138,20 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-
         .settings-btn:hover {
             background: #00d4ff;
             color: #000;
             box-shadow: 0 0 15px #00d4ff;
         }
-
-        /* Option Customizer Window Overlay */
+        /* Configuration Panel overlay */
         .settings-panel {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 90%;
+            width: 95%;
             max-width: 360px;
-            background: rgba(10, 10, 25, 0.98);
+            background: rgba(10, 10, 20, 0.98);
             border: 2px solid #00d4ff;
             border-radius: 15px;
             padding: 25px;
@@ -192,11 +160,9 @@
             box-shadow: 0 0 40px rgba(0, 212, 255, 0.5);
             pointer-events: auto;
         }
-
         .settings-panel.active {
             display: block;
         }
-
         .settings-panel h2 {
             text-align: center;
             color: #00d4ff;
@@ -204,11 +170,9 @@
             font-size: 1.4em;
             text-transform: uppercase;
         }
-
         .setting-group {
             margin-bottom: 18px;
         }
-
         .setting-group label {
             display: block;
             margin-bottom: 8px;
@@ -217,12 +181,10 @@
             color: #888;
             text-transform: uppercase;
         }
-
         .setting-options {
             display: flex;
             gap: 10px;
         }
-
         .opt-btn {
             flex: 1;
             padding: 10px;
@@ -234,13 +196,11 @@
             font-weight: bold;
             transition: all 0.2s;
         }
-
         .opt-btn.selected {
             background: rgba(0, 212, 255, 0.25);
             border-color: #00d4ff;
             color: #00d4ff;
         }
-
         .close-settings {
             width: 100%;
             padding: 12px;
@@ -254,7 +214,6 @@
             cursor: pointer;
             margin-top: 10px;
         }
-
         .controls-hint {
             position: absolute;
             bottom: 20px;
@@ -267,64 +226,74 @@
             border-radius: 8px;
             border: 1px solid rgba(0, 212, 255, 0.2);
         }
-
-        /* 3D Dynamic Drawing Canvas Elements styling */
-        .road-slice {
-            position: absolute;
-            left: 0;
-            width: 100%;
-            height: 2px;
-        }
     </style>
 </head> 
 <body>
 
     <div id="game-container">
-        <!-- Sky & Horizon -->
-        <div id="sky-bg">
-            <div id="horizon-glow"></div>
-        </div>
-        
-        <!-- Hardware Render Canvas context for pseudo 3D track line calculation strips -->
-        <div id="render-surface"></div>
+        <!-- Unified Vector Projection Canvas -->
+        <canvas id="gameCanvas"></canvas>
 
-        <!-- Cockpit Dashboard HUD Assets Layer -->
+        <!-- Dynamic Handlebar Cockpit Node -->
         <div id="cockpit-view">
             <div class="handlebar-left" id="l-bar"></div>
             <div class="handlebar-right" id="r-bar"></div>
             <div class="bike-fairing-center" id="b-fairing">
-                <div class="digital-dash" id="dash-rpm">RPM: 0</div>
+                <div class="digital-dash">
+                    <div id="dash-rpm">RPM: 0</div>
+                    <div id="dash-gear" style="color: #ff33aa;">GEAR: N</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- UI Overlay Layer HUD elements -->
+    <!-- UI Overlay HUD -->
     <div class="ui-layer">
-        <div class="hud-display">SPEED: <span id="speedTxt">0</span> MPH</div>
+        <div class="hud-panel">SPEED: <span id="speedTxt">0</span> MPH</div>
         
-        <button class="settings-btn" onclick="toggleDashboardSettings()">Settings</button>
+        <button class="settings-btn" onclick="toggleMenuWindow()">Settings</button>
         
         <div class="settings-panel" id="settingsPanel">
             <h2>Simulator Setup</h2>
             
             <div class="setting-group">
-                <label>TRACK BIOME ENVIRONMENT</label>
+                <label>TRACK TEXTURES THEME</label>
                 <div class="setting-options">
-                    <button class="opt-btn selected" id="env-dirt" onclick="changeBiomeTheme('dirt')">Dirt Desert</button>
-                    <button class="opt-btn" id="env-street" onclick="changeBiomeTheme('street')">Neon Highway</button>
+                    <button class="opt-btn selected" id="env-dirt" onclick="setBiome('dirt')">Dirt Track</button>
+                    <button class="opt-btn" id="env-street" onclick="setBiome('street')">City Street</button>
                 </div>
             </div>
             
             <div class="setting-group">
-                <label>BIKE COCKPIT TRIMS PAINT</label>
+                <label>BIKE FAIRING COLOR</label>
                 <div class="setting-options">
-                    <button class="opt-btn selected" id="col-cyan" onclick="changeFairingColor('#00d4ff', 'cyan')">Cyan</button>
-                    <button class="opt-btn" id="col-red" onclick="changeFairingColor('#ff3333', 'red')">Red</button>
-                    <button class="opt-btn" id="col-yellow" onclick="changeFairingColor('#ffcc00', 'yellow')">Yellow</button>
+                    <button class="opt-btn selected" id="col-cyan" onclick="setFairingPaint('#00d4ff', 'cyan')">Cyan</button>
+                    <button class="opt-btn" id="col-red" onclick="setFairingPaint('#ff3333', 'red')">Red</button>
+                    <button class="opt-btn" id="col-yellow" onclick="setFairingPaint('#ffcc00', 'yellow')">Yellow</button>
                 </div>
             </div>
 
             <div class="setting-group">
-                <label>SIMULATOR ENGINE TUNING</label>
+                <label>ENGINE CONFIGURATION</label>
                 <div class="setting-options">
-                    <button class="opt-btn selected" id="wh-normal" onclick="changeEngineTuning('normal')">Stock 250cc</button>
+                    <button class="opt-btn selected" id="wh-normal" onclick="setEngineTier('normal')">250cc</button>
+                    <button class="opt-btn" id="wh-monster" onclick="setEngineTier('monster')">450cc Pro</button>
+                </div>
+            </div>
+            
+            <button class="close-settings" onclick="toggleMenuWindow()">Dump Clutch</button>
+        </div>
+
+        <div class="controls-hint">
+            <strong>Controls:</strong> Hold <strong>W</strong> or <strong>Up Arrow</strong> to apply gas forward.<br>
+            Hold <strong>A / D</strong> or <strong>Left / Right Arrows</strong> to turn and physically lean the bike.<br>
+            Press <strong>R</strong> to reset your bike positioning immediately.
+        </div>
+    </div>
+
+    <script>
+        // --- Core Environment Properties ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const cockpit = document.getElementById('cockpit-view');
+        const fairing = document.getElementById('b-fairing');
