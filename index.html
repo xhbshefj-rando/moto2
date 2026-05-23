@@ -3,7 +3,7 @@
 <head> 
     <meta charset="utf-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-    <title>3D First Person Moto Pro</title> 
+    <title>3D First-Person Pro Motocross</title> 
     <style> 
         * { 
             margin: 0; 
@@ -14,286 +14,256 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            font-family: 'Arial', sans-serif; 
-            background: #05050f;
+            background: #0d0d1a;
+            font-family: 'Arial', sans-serif;
             user-select: none;
         } 
-        #game-container {
+        #canvas-container {
             width: 100%;
             height: 100%;
             position: absolute;
-            overflow: hidden;
+            top: 0;
+            left: 0;
         }
-        /* High-Performance Rendering Surface */
         #gameCanvas {
             width: 100%;
             height: 100%;
             display: block;
         }
-        /* 1st Person Cockpit Handlebars Overlay Layer */
-        #cockpit-view {
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            width: 600px;
-            height: 320px;
-            transform: translateX(-50%);
-            pointer-events: none;
-            z-index: 500;
-            transform-origin: bottom center;
-            transition: transform 0.04s linear;
-        }
-        .handlebar-left {
-            position: absolute;
-            width: 220px;
-            height: 28px;
-            background: #1e1e1e;
-            border: 4px solid #333;
-            left: 10px;
-            bottom: 140px;
-            transform: rotate(12deg);
-            border-radius: 12px 0 0 12px;
-            box-shadow: -5px 10px 10px rgba(0,0,0,0.5);
-        }
-        .handlebar-right {
-            position: absolute;
-            width: 220px;
-            height: 28px;
-            background: #1e1e1e;
-            border: 4px solid #333;
-            right: 10px;
-            bottom: 140px;
-            transform: rotate(-12deg);
-            border-radius: 0 12px 12px 0;
-            box-shadow: 5px 10px 10px rgba(0,0,0,0.5);
-        }
-        .bike-fairing-center {
-            position: absolute;
-            width: 180px;
-            height: 160px;
-            background: #00d4ff; /* Custom Trim Variant Paint */
-            bottom: 0;
-            left: 210px;
-            border-radius: 60px 60px 0 0;
-            border: 6px solid #1a1a1a;
-            box-shadow: 0 -15px 30px rgba(0,0,0,0.7);
-            overflow: hidden;
-            transition: background 0.3s;
-        }
-        .digital-dash {
-            position: absolute;
-            width: 100%;
-            height: 65px;
-            background: #0f0f15;
-            bottom: 0;
-            border-top: 4px solid #252530;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: #00d4ff;
-            font-family: monospace;
-            font-weight: bold;
-            font-size: 1.1em;
-            text-shadow: 0 0 5px #00d4ff;
-            line-height: 1.3;
-        }
-        /* HUD Panel UI */
-        .ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1000;
-            pointer-events: none;
-        }
-        .hud-panel {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #00d4ff;
-            font-size: 1.8em;
-            font-weight: bold;
-            font-family: monospace;
-            background: rgba(0,0,0,0.8);
-            padding: 12px 25px;
-            border-radius: 8px;
-            border: 1px solid rgba(0,212,255,0.4);
-            text-shadow: 0 0 8px rgba(0,212,255,0.6);
-        }
-        .settings-btn {
+        /* Config Overlay Panel */
+        .ui-panel {
             position: absolute;
             top: 20px;
             right: 20px;
-            pointer-events: auto;
-            background: rgba(0, 212, 255, 0.2);
-            border: 2px solid #00d4ff;
-            color: #00d4ff;
-            padding: 12px 25px;
-            font-size: 1em;
+            z-index: 1000;
+        }
+        .settings-btn {
+            background: rgba(255, 170, 0, 0.2);
+            border: 2px solid #ffaa00;
+            color: #ffaa00;
+            padding: 10px 20px;
+            font-size: 0.9em;
             font-weight: bold;
             text-transform: uppercase;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
         }
         .settings-btn:hover {
-            background: #00d4ff;
+            background: #ffaa00;
             color: #000;
-            box-shadow: 0 0 15px #00d4ff;
+            box-shadow: 0 0 15px #ffaa00;
         }
-        /* Configuration Panel overlay */
-        .settings-panel {
+        .menu-box {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 95%;
-            max-width: 360px;
-            background: rgba(10, 10, 20, 0.98);
-            border: 2px solid #00d4ff;
-            border-radius: 15px;
-            padding: 25px;
+            top: 50px;
+            right: 0;
+            width: 280px;
+            background: rgba(15, 15, 25, 0.98);
+            border: 2px solid #ffaa00;
+            border-radius: 10px;
+            padding: 20px;
             color: #fff;
             display: none;
-            box-shadow: 0 0 40px rgba(0, 212, 255, 0.5);
-            pointer-events: auto;
+            box-shadow: 0 0 30px rgba(255, 170, 0, 0.4);
         }
-        .settings-panel.active {
+        .menu-box.active {
             display: block;
         }
-        .settings-panel h2 {
+        .menu-box h3 {
             text-align: center;
-            color: #00d4ff;
-            margin-bottom: 20px;
-            font-size: 1.4em;
+            color: #ffaa00;
+            margin-bottom: 15px;
+            font-size: 1.2em;
             text-transform: uppercase;
         }
-        .setting-group {
-            margin-bottom: 18px;
-        }
-        .setting-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            font-size: 0.8em;
-            color: #888;
-            text-transform: uppercase;
-        }
-        .setting-options {
+        .btn-group {
             display: flex;
-            gap: 10px;
+            gap: 5px;
+            margin-bottom: 15px;
         }
         .opt-btn {
             flex: 1;
-            padding: 10px;
+            padding: 8px 4px;
             background: rgba(255,255,255,0.05);
-            border: 1px solid #333;
+            border: 1px solid #444;
             color: #fff;
-            border-radius: 6px;
+            border-radius: 4px;
             cursor: pointer;
+            font-size: 0.8em;
             font-weight: bold;
-            transition: all 0.2s;
+            text-align: center;
         }
         .opt-btn.selected {
-            background: rgba(0, 212, 255, 0.25);
-            border-color: #00d4ff;
-            color: #00d4ff;
+            background: rgba(255, 170, 0, 0.25);
+            border-color: #ffaa00;
+            color: #ffaa00;
         }
-        .close-settings {
-            width: 100%;
-            padding: 12px;
-            background: #00d4ff;
-            color: #000;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: bold;
-            text-transform: uppercase;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        .controls-hint {
+        .hint-text {
             position: absolute;
             bottom: 20px;
             left: 20px;
+            color: rgba(255, 255, 255, 0.6);
             font-size: 0.85em;
-            color: #aaa;
-            line-height: 1.4;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 12px 18px;
-            border-radius: 8px;
-            border: 1px solid rgba(0, 212, 255, 0.2);
+            background: rgba(0,0,0,0.75);
+            padding: 10px 15px;
+            border-radius: 6px;
+            pointer-events: none;
+            line-height: 1.5;
+            border: 1px solid rgba(255, 170, 0, 0.2);
         }
     </style>
 </head> 
 <body>
 
-    <div id="game-container">
-        <!-- Unified Vector Projection Canvas -->
+    <div id="canvas-container">
         <canvas id="gameCanvas"></canvas>
+    </div>
 
-        <!-- Dynamic Handlebar Cockpit Node -->
-        <div id="cockpit-view">
-            <div class="handlebar-left" id="l-bar"></div>
-            <div class="handlebar-right" id="r-bar"></div>
-            <div class="bike-fairing-center" id="b-fairing">
-                <div class="digital-dash">
-                    <div id="dash-rpm">RPM: 0</div>
-                    <div id="dash-gear" style="color: #ff33aa;">GEAR: N</div>
+    <!-- UI Overlay Config -->
+    <div class="ui-panel">
+        <button class="settings-btn" onclick="toggleMenu()">Bike Setup</button>
+        <div class="menu-box" id="settingsMenu">
+            <h3>Bike Customizer</h3>
+            
+            <div style="margin-bottom: 10px;">
+                <label style="display:block; font-size:0.75em; color:#aaa; margin-bottom:4px; font-weight:bold;">TRACK BIOME</label>
+                <div class="btn-group">
+                    <button class="opt-btn selected" id="env-dirt" onclick="setBiome('dirt')">Red Clay</button>
+                    <button class="opt-btn" id="env-street" onclick="setBiome('street')">Supercross</button>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+                <label style="display:block; font-size:0.75em; color:#aaa; margin-bottom:4px; font-weight:bold;">FAIRING GRAPHICS</label>
+                <div class="btn-group">
+                    <button class="opt-btn selected" id="col-orange" onclick="setColor('#ff6600', 'orange')">Orange</button>
+                    <button class="opt-btn" id="col-green" onclick="setColor('#33cc33', 'green')">Green</button>
+                    <button class="opt-btn" id="col-blue" onclick="setColor('#0066ff', 'blue')">Blue</button>
+                </div>
+            </div>
+
+            <div>
+                <label style="display:block; font-size:0.75em; color:#aaa; margin-bottom:4px; font-weight:bold;">ENGINE TIER</label>
+                <div class="btn-group">
+                    <button class="opt-btn selected" id="pow-250" onclick="setEngine('normal')">250cc 4-Stroke</button>
+                    <button class="opt-btn" id="pow-450" onclick="setEngine('monster')">450cc Factory</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- UI Overlay HUD -->
-    <div class="ui-layer">
-        <div class="hud-panel">SPEED: <span id="speedTxt">0</span> MPH</div>
-        
-        <button class="settings-btn" onclick="toggleMenuWindow()">Settings</button>
-        
-        <div class="settings-panel" id="settingsPanel">
-            <h2>Simulator Setup</h2>
-            
-            <div class="setting-group">
-                <label>TRACK TEXTURES THEME</label>
-                <div class="setting-options">
-                    <button class="opt-btn selected" id="env-dirt" onclick="setBiome('dirt')">Dirt Track</button>
-                    <button class="opt-btn" id="env-street" onclick="setBiome('street')">City Street</button>
-                </div>
-            </div>
-            
-            <div class="setting-group">
-                <label>BIKE FAIRING COLOR</label>
-                <div class="setting-options">
-                    <button class="opt-btn selected" id="col-cyan" onclick="setFairingPaint('#00d4ff', 'cyan')">Cyan</button>
-                    <button class="opt-btn" id="col-red" onclick="setFairingPaint('#ff3333', 'red')">Red</button>
-                    <button class="opt-btn" id="col-yellow" onclick="setFairingPaint('#ffcc00', 'yellow')">Yellow</button>
-                </div>
-            </div>
-
-            <div class="setting-group">
-                <label>ENGINE CONFIGURATION</label>
-                <div class="setting-options">
-                    <button class="opt-btn selected" id="wh-normal" onclick="setEngineTier('normal')">250cc</button>
-                    <button class="opt-btn" id="wh-monster" onclick="setEngineTier('monster')">450cc Pro</button>
-                </div>
-            </div>
-            
-            <button class="close-settings" onclick="toggleMenuWindow()">Dump Clutch</button>
-        </div>
-
-        <div class="controls-hint">
-            <strong>Controls:</strong> Hold <strong>W</strong> or <strong>Up Arrow</strong> to apply gas forward.<br>
-            Hold <strong>A / D</strong> or <strong>Left / Right Arrows</strong> to turn and physically lean the bike.<br>
-            Press <strong>R</strong> to reset your bike positioning immediately.
-        </div>
+    <div class="hint-text">
+        <strong>Controls:</strong> Hold <strong>W</strong> or <strong>Up Arrow</strong> to roll on the throttle.<br>
+        Hold <strong>A / D</strong> or <strong>Left / Right Arrows</strong> to turn and lean deep into curves.<br>
+        Press <strong>R</strong> to reset your bike positioning immediately.
     </div>
 
     <script>
-        // --- Core Environment Properties ---
+        // --- Core Setup Elements ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const cockpit = document.getElementById('cockpit-view');
-        const fairing = document.getElementById('b-fairing');
+        
+        let isMenuOpen = false;
+        let biomeType = 'dirt';
+        let bikeClass = 'normal';
+        let fairingColor = '#ff6600'; // Default Factory Racing Orange
+
+        // --- Physics & Track Generation state variables ---
+        let speed = 0;
+        let topSpeed = 24;
+        let distanceTraveled = 0;
+        let lateralOffset = 0; 
+        let trackCurve = 0;
+        
+        // --- Leaning Interpolators ---
+        let targetLeanAngle = 0;
+        let interpolatedLean = 0;
+
+        // --- Unified Keyboard Input Array ---
+        const inputs = { w: false, s: false, a: false, d: false, arrowup: false, arrowdown: false, arrowleft: false, arrowright: false };
+
+        window.addEventListener('keydown', (e) => {
+            if (isMenuOpen) return;
+            const key = e.key.toLowerCase();
+            if (key === 'r') { resetState(); return; }
+            if (inputs.hasOwnProperty(key)) inputs[key] = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if (inputs.hasOwnProperty(key)) inputs[key] = false;
+        });
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- Graphics & Physics Processing Loop Engine ---
+        function renderLoop() {
+            requestAnimationFrame(renderLoop);
+
+            if (isMenuOpen) return;
+
+            // Handle Input Processing
+            const gas = inputs.w || inputs.arrowup;
+            const brake = inputs.s || inputs.arrowdown;
+            const turnLeft = inputs.a || inputs.arrowleft;
+            const turnRight = inputs.d || inputs.arrowright;
+
+            // 1. Motocross Physics & Power Vectors
+            const throttlePower = (bikeClass === 'monster') ? 0.40 : 0.24;
+            if (gas) {
+                speed = Math.min(speed + throttlePower, topSpeed);
+            } else if (brake) {
+                speed = Math.max(speed - 0.7, 0);
+            } else {
+                speed *= 0.95; // Mechanical engine-braking friction drag drop
+            }
+
+            distanceTraveled += speed;
+
+            // Continuous complex curve wave math to build an organic track layout
+            trackCurve = Math.sin(distanceTraveled * 0.001) * 2.6 + Math.cos(distanceTraveled * 0.0004) * 1.6;
+
+            // 2. Pro Cockpit Lean Simulation Math
+            targetLeanAngle = 0;
+            if (turnLeft && speed > 0.5) {
+                lateralOffset -= speed * 0.16;
+                targetLeanAngle = -26; // Complete 26-degree handlebar layout pivot slant
+            } else if (turnRight && speed > 0.5) {
+                lateralOffset += speed * 0.16;
+                targetLeanAngle = 26;
+            }
+
+            // Continuous drift (Track curves drag your alignment sideways)
+            lateralOffset -= (trackCurve * speed * 0.045);
+
+            // Interpolate leaning angles smoothly (Eliminates jarring frame skips)
+            interpolatedLean = interpolatedLean * 0.82 + targetLeanAngle * 0.18;
+
+            // Handle bar vibrations relative to engine speed
+            let vibeX = 0, vibeY = 0;
+            if (speed > 1) {
+                const shakeRatio = (speed / topSpeed);
+                vibeX = (Math.random() - 0.5) * (14 * shakeRatio);
+                vibeY = (Math.random() - 0.5) * (8 * shakeRatio);
+            }
+
+            // --- DRAWING PIPELINE ---
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const horizonHeightY = canvas.height * 0.45; // Lower horizon for enhanced 3D depth
+
+            // A. Render Sky Background Gradient
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonHeightY);
+            if (biomeType === 'dirt') {
+                skyGrad.addColorStop(0, '#040201'); skyGrad.addColorStop(1, '#24140a'); // Sunset desert sky
+            } else {
+                skyGrad.addColorStop(0, '#010408'); skyGrad.addColorStop(1, '#0e1a2b'); // Night arena sky
+            }
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, horizonHeightY);
+
+            // Draw Mountain Ranges Background
