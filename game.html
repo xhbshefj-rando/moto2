@@ -3,7 +3,7 @@
 <head> 
     <meta charset="utf-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-    <title>3D Motocross Game</title> 
+    <title>3D Motocross Game - Stable Build</title> 
     <style> 
         * { 
             margin: 0; 
@@ -15,7 +15,8 @@
             height: 100%;
             overflow: hidden;
             font-family: 'Arial', sans-serif; 
-            background: #000;
+            background: #050510;
+            user-select: none;
         } 
         #canvas-container {
             width: 100%;
@@ -43,14 +44,15 @@
             align-items: center; 
             justify-content: center; 
             width: 100%;
-            max-width: 600px;
+            max-width: 500px;
             background: rgba(0, 0, 0, 0.85); 
             border: 2px solid #00d4ff;
             border-radius: 20px; 
             padding: 40px; 
             text-align: center; 
             pointer-events: auto;
-            transition: opacity 0.5s ease, transform 0.5s ease;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
         } 
         .menu-screen.hidden { 
             opacity: 0;
@@ -64,14 +66,13 @@
             text-shadow: 0 0 20px rgba(0, 212, 255, 0.6); 
         } 
         .menu-title { 
-            font-size: 1.5em; 
+            font-size: 1.3em; 
             margin-bottom: 30px; 
             color: #00d4ff; 
         } 
         .menu-options { 
             display: flex;
             flex-direction: column;
-            gap: 15px; 
             width: 100%; 
         } 
         .menu-btn { 
@@ -107,9 +108,9 @@
             margin-top: 20px;
             font-size: 0.85em;
             color: #888;
+            line-height: 1.4;
         }
     </style>
-    <!-- Include Three.js via CDN -->
     <script src="https://cloudflare.com"></script>
 </head> 
 <body>
@@ -117,47 +118,60 @@
     <div id="canvas-container"></div>
 
     <div class="ui-layer">
-        <!-- Main Menu -->
         <div class="menu-screen" id="mainMenu"> 
             <h1>MOTO X 3D</h1> 
-            <div class="menu-title">High-Performance Rendering Engine</div> 
+            <div class="menu-title">Robust Engine Architecture</div> 
             <div class="menu-options"> 
-                <button class="menu-btn" onclick="startGame()">Start Race</button> 
+                <button class="menu-btn" id="startBtn">Start Race</button> 
             </div> 
-            <div class="controls-hint">W/A/S/D or Arrow Keys to Drive & Balance</div>
+            <div class="controls-hint">
+                W/A/S/D or Arrow Keys to Drive & Balance<br>
+                Press <strong>R</strong> to Reset Bike Position
+            </div>
         </div>
 
-        <!-- Gameplay HUD -->
         <div class="hud" id="gameHud">SPEED: <span id="speedTxt">0</span> MPH</div>
     </div>
 
     <script>
-        // --- Core Engine Architecture ---
+        // --- Core Engine & Bounds Config ---
         let scene, camera, renderer, terrain;
-        let bike, rearWheel;
+        let bike = null, rearWheel = null, frontForkAssembly = null;
         let clock = new THREE.Clock();
         let isPlaying = false;
+        const MAP_BOUNDS = 240; // Safe threshold constraint before resetting
 
-        // --- Physics & Dirt Particle Variables ---
+        // --- Optimized Physics Tuning ---
         let speed = 0;
-        const maxSpeed = 0.6;
-        const acceleration = 0.01;
-        const deceleration = 0.98;
-        
+        const maxSpeed = 0.8;
+        const acceleration = 0.015;
+        const deceleration = 0.96; // Improved stopping response
         let bikeRotation = 0;
-        const turnSpeed = 0.03;
+        const turnSpeed = 0.04;
 
+        // --- Recycled Particle Buffer Config ---
         let dirtParticles = [];
-        const maxDirtParticles = 150;
+        const maxDirtParticles = 200;
+        let nextParticleIndex = 0; // Fixed index tracking pointer (Stops memory leak bottlenecks)
         let particleGeometry, particleMaterial, particleSystem;
 
-        // --- Input Tracking ---
-        const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
+        // --- Input Map Tracking ---
+        const keys = { 
+            w: false, a: false, s: false, d: false, 
+            arrowup: false, arrowleft: false, arrowdown: false, arrowright: false 
+        };
 
-        window.addEventListener('keydown', (e) => { if(keys.hasOwnProperty(e.key)) keys[e.key] = true; });
-        window.addEventListener('keyup', (e) => { if(keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+        // Case-Insensitive Keyboard Event Sanitization Filters (Fixes Capitalization Bug)
+        window.addEventListener('keydown', (e) => { 
+            const keyNormalized = e.key.toLowerCase();
+            if (keyNormalized === 'r') { resetBikePosition(); return; }
+            if (keys.hasOwnProperty(keyNormalized)) keys[keyNormalized] = true; 
+        });
+        window.addEventListener('keyup', (e) => { 
+            const keyNormalized = e.key.toLowerCase();
+            if (keys.hasOwnProperty(keyNormalized)) keys[keyNormalized] = false; 
+        });
 
-        // --- Initialize Engine Environment ---
         function initEngine() {
             const container = document.getElementById('canvas-container');
             
@@ -174,57 +188,52 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             container.appendChild(renderer.domElement);
 
-            // Lighting Setup (Eliminates bad shading/black spots)
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
             scene.add(ambientLight);
 
             const sunLight = new THREE.DirectionalLight(0xffaa44, 1.2);
             sunLight.position.set(100, 150, 50);
             sunLight.castShadow = true;
-            sunLight.shadow.mapSize.width = 2048;
-            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.mapSize.width = 1048; // Optimized performance texture allocation maps
+            sunLight.shadow.mapSize.height = 1048;
             scene.add(sunLight);
 
             generateTrackTerrain();
             buildPlayerBike();
             initDirtEngine();
 
-            // Set initial cinematic camera angle for menu layout
-            camera.position.set(0, 8, -15);
-            camera.lookAt(0, 2, 0);
-
+            document.getElementById('startBtn').addEventListener('click', startGame);
             window.addEventListener('resize', onWindowResize);
             animate();
         }
 
-        // --- Generate Anti-Aliased Track Terrain ---
         function generateTrackTerrain() {
-            const size = 400;
-            const segments = 120;
+            const size = 500;
+            const segments = 100;
             const geometry = new THREE.PlaneGeometry(size, size, segments, segments);
             geometry.rotateX(-Math.PI / 2);
 
-            // Sculpt Realistic Motocross Hills/Valleys programmatically
             const pos = geometry.attributes.position;
             for (let i = 0; i < pos.count; i++) {
                 const x = pos.getX(i);
                 const z = pos.getZ(i);
-                // Combine sine waves to create organic dirt track topography
-                const y = Math.sin(x * 0.05) * Math.cos(z * 0.05) * 3 + Math.sin(x * 0.01) * 5;
+                let y = Math.sin(x * 0.04) * Math.cos(z * 0.04) * 4 + Math.sin(x * 0.01) * 6;
+                
+                // Clear immediate spawn coordinates to zero elevation
+                if (Math.abs(x) < 15 && Math.abs(z) < 15) y = 0;
                 pos.setY(i, y);
             }
             geometry.computeVertexNormals();
 
-            // Ground texture mapping using procedural canvas grid
             const gridCanvas = document.createElement('canvas');
-            gridCanvas.width = 256;
-            gridCanvas.height = 256;
+            gridCanvas.width = 128;
+            gridCanvas.height = 128;
             const ctx = gridCanvas.getContext('2d');
-            ctx.fillStyle = '#3a2212'; // Base rich mud/dirt tone
-            ctx.fillRect(0, 0, 256, 256);
-            ctx.fillStyle = '#4d301c'; // Rough topography variance patches
-            for(let i=0; i<400; i++) {
-                ctx.fillRect(Math.random()*256, Math.random()*256, 4, 4);
+            ctx.fillStyle = '#3a2212'; 
+            ctx.fillRect(0, 0, 128, 128);
+            ctx.fillStyle = '#4d301c'; 
+            for(let i=0; i<150; i++) {
+                ctx.fillRect(Math.random()*128, Math.random()*128, 3, 3);
             }
             
             const groundTexture = new THREE.CanvasTexture(gridCanvas);
@@ -234,44 +243,32 @@
 
             const material = new THREE.MeshStandardMaterial({ 
                 map: groundTexture, 
-                roughness: 0.9, 
-                metalness: 0.1 
+                roughness: 0.95, 
+                metalness: 0.05 
             });
 
             terrain = new THREE.Mesh(geometry, material);
             terrain.receiveShadow = true;
             scene.add(terrain);
+
+            // Starting Pad Base
+            const platformGeo = new THREE.BoxGeometry(6, 0.4, 12);
+            const platformMat = new THREE.MeshStandardMaterial({ color: 0x1c1c24, roughness: 0.6 });
+            const platform = new THREE.Mesh(platformGeo, platformMat);
+            platform.position.set(0, -0.2, 0);
+            platform.receiveShadow = true;
+            scene.add(platform);
         }
 
-        // --- Get Accurate Terrain Elevation (Anti-Clip/Anti-Bug) ---
+        // Precise elevation calculation mapping matrix
         function getTerrainHeight(x, z) {
-            if (!terrain) return 0;
-            // Analytical approximation matching the procedural formula above
-            return Math.sin(x * 0.05) * Math.cos(z * 0.05) * 3 + Math.sin(x * 0.01) * 5;
+            // Check world safety boundaries (Fixes boundary falling bug)
+            if (Math.abs(x) > MAP_BOUNDS || Math.abs(z) > MAP_BOUNDS) return 0;
+            if (Math.abs(x) < 4 && Math.abs(z) < 7) return 0.05; 
+            return Math.sin(x * 0.04) * Math.cos(z * 0.04) * 4 + Math.sin(x * 0.01) * 6;
         }
 
-        // --- Build Modular 3D Bike Asset ---
         function buildPlayerBike() {
             bike = new THREE.Group();
 
-            // Lightweight high-performance material setups
-            const metalMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.2, metalness: 0.8 });
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00d4ff, roughness: 0.5, metalness: 0.4 });
-            const rubberMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
-
-            // Main chassis frame
-            const frameGeo = new THREE.BoxGeometry(0.4, 0.6, 2);
-            const frame = new THREE.Mesh(frameGeo, bodyMat);
-            frame.position.y = 1.2;
-            frame.castShadow = true;
-            bike.add(frame);
-
-            // Rear Tire setup
-            const wheelGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.4, 16);
-            wheelGeo.rotateZ(Math.PI / 2);
-            rearWheel = new THREE.Mesh(wheelGeo, rubberMat);
-            rearWheel.position.set(0, 0.6, -1);
-            rearWheel.castShadow = true;
-            bike.add(rearWheel);
-
-            // Front Tire setup
+            const metalMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.1, metalness: 0.85 });
