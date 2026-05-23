@@ -3,7 +3,7 @@
 <head> 
     <meta charset="utf-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-    <title>3D Moto Racing Simulator</title> 
+    <title>3D Moto Racing Arcade</title> 
     <style> 
         * { 
             margin: 0; 
@@ -15,27 +15,132 @@
             height: 100%;
             overflow: hidden;
             font-family: 'Arial', sans-serif; 
-            background: #0a0a16;
+            background: #0b0b1e;
             user-select: none;
         } 
-        #canvas-container {
+        
+        /* 3D Viewport Wrapper */
+        #game-viewport {
             width: 100%;
             height: 100%;
             position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
+            overflow: hidden;
+            perspective: 600px; /* Forces real hardware 3D depth perspective */
         }
+
+        /* 3D Ground Horizon Track */
+        #track-ground {
+            position: absolute;
+            bottom: 0;
+            left: -50%;
+            width: 200%;
+            height: 60%;
+            background: #422815; /* Default rich dirt track tone */
+            transform-origin: top center;
+            transform: rotateX(65deg);
+            box-shadow: inset 0 20px 100px rgba(0,0,0,0.8);
+            overflow: hidden;
+            border-top: 4px solid #00d4ff;
+            transition: background 0.3s;
+        }
+
+        /* Speed Lines Grids (Simulates true high-speed movement forward) */
+        .track-grid-line {
+            position: absolute;
+            width: 8px;
+            height: 120px;
+            background: rgba(255, 170, 68, 0.4);
+            left: 50%;
+            top: -120px;
+            transform: translateX(-50%);
+        }
+
+        /* Visible Player Motorcycle Bike Box Graphic */
+        #player-bike-wrapper {
+            position: absolute;
+            bottom: 12%;
+            left: 50%;
+            width: 60px;
+            height: 110px;
+            transform: translateX(-50%);
+            transition: transform 0.05s linear, left 0.1s ease-out;
+            z-index: 100;
+        }
+
+        /* Bike Body Graphic Elements */
+        .bike-chassis {
+            position: absolute;
+            width: 16px;
+            height: 80px;
+            background: #00d4ff; /* Default Cyan body paint */
+            left: 22px;
+            top: 15px;
+            border-radius: 4px;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.5);
+            transition: background 0.3s;
+        }
+
+        .bike-wheel-front {
+            position: absolute;
+            width: 12px;
+            height: 24px;
+            background: #111;
+            left: 24px;
+            top: 0;
+            border-radius: 4px;
+            border: 2px solid #444;
+            transition: transform 0.1s ease;
+        }
+
+        .bike-wheel-rear {
+            position: absolute;
+            width: 14px;
+            height: 28px;
+            background: #111;
+            left: 23px;
+            bottom: 0;
+            border-radius: 4px;
+            border: 2px solid #444;
+            transition: transform 0.2s linear;
+        }
+
+        .bike-handlebars {
+            position: absolute;
+            width: 50px;
+            height: 6px;
+            background: #888;
+            left: 5px;
+            top: 22px;
+            border-radius: 2px;
+        }
+
+        /* Flinging Dirt Particle Spawners */
+        .dirt-spray {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #5a381e;
+            border-radius: 50%;
+            opacity: 0;
+            bottom: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* UI HUD Layer Layout */
         .ui-layer {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 10;
+            z-index: 1000;
             pointer-events: none;
         }
-        .hud {
+
+        .hud-panel {
             position: absolute;
             top: 20px;
             left: 20px;
@@ -43,23 +148,14 @@
             font-size: 1.8em;
             font-weight: bold;
             font-family: monospace;
-            text-shadow: 0 0 10px rgba(0,212,255,0.5);
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.7);
             padding: 10px 20px;
             border-radius: 8px;
+            border: 1px solid rgba(0,212,255,0.3);
+            text-shadow: 0 0 10px rgba(0,212,255,0.5);
         }
-        .controls-hint {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            font-size: 0.9em;
-            color: #aaa;
-            line-height: 1.4;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 12px 18px;
-            border-radius: 8px;
-            border: 1px solid rgba(0, 212, 255, 0.3);
-        }
+
+        /* Settings Display Button Frame */
         .settings-btn {
             position: absolute;
             top: 20px;
@@ -68,7 +164,7 @@
             background: rgba(0, 212, 255, 0.2);
             border: 2px solid #00d4ff;
             color: #00d4ff;
-            padding: 10px 25px;
+            padding: 12px 25px;
             font-size: 1em;
             font-weight: bold;
             text-transform: uppercase;
@@ -76,51 +172,61 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
+
         .settings-btn:hover {
             background: #00d4ff;
             color: #000;
             box-shadow: 0 0 15px #00d4ff;
         }
+
+        /* Settings Drop Window Overlay */
         .settings-panel {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             width: 90%;
-            max-width: 380px;
-            background: rgba(10, 10, 25, 0.95);
+            max-width: 360px;
+            background: rgba(10, 10, 25, 0.98);
             border: 2px solid #00d4ff;
             border-radius: 15px;
             padding: 25px;
             color: #fff;
-            display: none;
-            box-shadow: 0 0 40px rgba(0, 212, 255, 0.4);
+            display: none; /* Controlled instantly via absolute block displays toggled below */
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.5);
             pointer-events: auto;
         }
+
         .settings-panel.active {
             display: block;
         }
+
         .settings-panel h2 {
             text-align: center;
             color: #00d4ff;
             margin-bottom: 20px;
-            font-size: 1.6em;
+            font-size: 1.5em;
+            text-transform: uppercase;
         }
+
         .setting-group {
             margin-bottom: 18px;
         }
+
         .setting-group label {
             display: block;
             margin-bottom: 8px;
             font-weight: bold;
-            font-size: 0.85em;
+            font-size: 0.8em;
             color: #888;
             text-transform: uppercase;
         }
+
         .setting-options {
             display: flex;
             gap: 10px;
         }
+
         .opt-btn {
             flex: 1;
             padding: 10px;
@@ -132,11 +238,13 @@
             font-weight: bold;
             transition: all 0.2s;
         }
+
         .opt-btn.selected {
             background: rgba(0, 212, 255, 0.25);
             border-color: #00d4ff;
             color: #00d4ff;
         }
+
         .close-settings {
             width: 100%;
             padding: 12px;
@@ -150,137 +258,70 @@
             cursor: pointer;
             margin-top: 10px;
         }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 0.85em;
+            color: #aaa;
+            line-height: 1.4;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px 18px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
     </style>
-    <!-- Dependable Three.js production build bundle asset -->
-    <script src="https://cloudflare.com"></script>
 </head> 
 <body>
 
-    <div id="canvas-container"></div>
-
-    <div class="ui-layer">
-        <div class="hud">SPEED: <span id="speedTxt">0</span> MPH</div>
+    <!-- Native Hardware Accelerated Viewport Layer -->
+    <div id="game-viewport">
+        <div id="track-ground">
+            <!-- Programmatic Speed Lines Arrays generated here dynamically -->
+        </div>
         
-        <button class="settings-btn" onclick="toggleSettings()">Settings</button>
-        
-        <div class="settings-panel" id="settingsPanel">
-            <h2>Game Settings</h2>
-            
-            <div class="setting-group">
-                <label>Track Theme</label>
-                <div class="setting-options">
-                    <button class="opt-btn selected" id="env-dirt" onclick="setTrackTheme('dirt')">Dirt Track</button>
-                    <button class="opt-btn" id="env-street" onclick="setTrackTheme('street')">City Street</button>
-                </div>
-            </div>
-            
-            <div class="setting-group">
-                <label>Bike Customization</label>
-                <div class="setting-options">
-                    <button class="opt-btn selected" id="col-cyan" onclick="setBikeColor(0x00d4ff, 'cyan')">Cyan</button>
-                    <button class="opt-btn" id="col-red" onclick="setBikeColor(0xff3333, 'red')">Red</button>
-                    <button class="opt-btn" id="col-yellow" onclick="setBikeColor(0xffcc00, 'yellow')">Yellow</button>
-                </div>
-            </div>
-
-            <div class="setting-group">
-                <label>Wheel Options</label>
-                <div class="setting-options">
-                    <button class="opt-btn selected" id="wh-normal" onclick="setWheelType(0.5, 'normal')">Stock</button>
-                    <button class="opt-btn" id="wh-monster" onclick="setWheelType(0.78, 'monster')">Monster</button>
-                </div>
-            </div>
-            
-            <button class="close-settings" onclick="toggleSettings()">Resume Simulation</button>
+        <!-- Visible Motorcycle Mesh asset -->
+        <div id="player-bike-wrapper">
+            <div class="bike-wheel-front" id="w-front"></div>
+            <div class="bike-handlebars" id="h-bars"></div>
+            <div class="bike-chassis" id="b-chassis"></div>
+            <div class="bike-wheel-rear" id="w-rear"></div>
         </div>
 
-        <div class="controls-hint">
-            <strong>Controls:</strong> Hold <strong>W</strong> or <strong>Up Arrow</strong> to accelerate.<br>
-            Use <strong>A / D</strong> or <strong>Left / Right Arrows</strong> to turn and lean.<br>
-            Press <strong>R</strong> to automatically reset your bike positioning.
-        </div>
+        <!-- Pre-rendered Dirt spray asset blocks -->
+        <div class="dirt-spray" id="dust1"></div>
+        <div class="dirt-spray" id="dust2"></div>
+        <div class="dirt-spray" id="dust3"></div>
     </div>
 
-    <script>
-        // --- Core Engine Environment Variables ---
-        let scene, camera, renderer;
-        let bikeGroup, rearWheel, frontWheel, frameMesh, handlebars;
-        let trackPlane, trackMaterial;
-        let speedIndicators = [];
-        let particles = [];
-        let isSettingsOpen = false;
-
-        // --- Customization Settings Profiles ---
-        let currentTheme = 'dirt';
-        let currentBodyColor = 0x00d4ff;
-        let currentWheelSize = 0.5;
-
-        // --- Kinematic Motion Variables ---
-        let velocity = 0;
-        const topSpeed = 1.2;
-        const rateOfAcceleration = 0.012;
-        const rateOfFriction = 0.96;
-        let bikeHeading = 0;
-        const rateOfTurning = 0.038;
-
-        // --- Active Key Map Listeners ---
-        const activeKeys = { w: false, s: false, a: false, d: false, arrowup: false, arrowdown: false, arrowleft: false, arrowright: false };
-
-        window.addEventListener('keydown', (e) => {
-            if (isSettingsOpen) return;
-            const keyLow = e.key.toLowerCase();
-            if (keyLow === 'r') { resetBikeState(); return; }
-            if (activeKeys.hasOwnProperty(keyLow)) activeKeys[keyLow] = true;
-        });
-
-        window.addEventListener('keyup', (e) => {
-            const keyLow = e.key.toLowerCase();
-            if (activeKeys.hasOwnProperty(keyLow)) activeKeys[keyLow] = false;
-        });
-
-        // --- Core Application Entry Pipeline ---
-        function runSimulation() {
-            const stage = document.getElementById('canvas-container');
+    <!-- UI Controls Overlay -->
+    <div class="ui-layer">
+        <div class="hud-panel">SPEED: <span id="speedTxt">0</span> MPH</div>
+        
+        <button class="settings-btn" onclick="toggleSettingsMenu()">Settings</button>
+        
+        <!-- Safe Settings Customizer Box Window Container -->
+        <div class="settings-panel" id="settingsPanel">
+            <h2>Simulator Configuration</h2>
             
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x060613);
-            scene.fog = new THREE.FogExp2(0x060613, 0.018);
-
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            stage.appendChild(renderer.domElement);
-
-            // Establish clear ambient and overhead sunlight arrays
-            const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambient);
-
-            const directSun = new THREE.DirectionalLight(0xffffff, 1.0);
-            directSun.position.set(40, 100, 20);
-            scene.add(directSun);
-
-            // Construct environmental blocks
-            buildTrackEnvironment();
-            assembleBikeAsset();
-            prepareMotionIndicators();
-
-            window.addEventListener('resize', onResizeWindow);
+            <div class="setting-group">
+                <label>TRACK ENVIRONMENT</label>
+                <div class="setting-options">
+                    <button class="opt-btn selected" id="env-dirt" onclick="updateEnvironment('dirt')">Dirt Track</button>
+                    <button class="opt-btn" id="env-street" onclick="updateEnvironment('street')">City Street</button>
+                </div>
+            </div>
             
-            resetBikeState();
-            animateLoop();
-        }
+            <div class="setting-group">
+                <label>MOTORCYCLE COLOR</label>
+                <div class="setting-options">
+                    <button class="opt-btn selected" id="col-cyan" onclick="updateBikeColor('#00d4ff', 'cyan')">Cyan</button>
+                    <button class="opt-btn" id="col-red" onclick="updateBikeColor('#ff3333', 'red')">Red</button>
+                    <button class="opt-btn" id="col-yellow" onclick="updateBikeColor('#ffcc00', 'yellow')">Yellow</button>
+                </div>
+            </div>
 
-        // --- Build Track Environments (Guaranteed High Visibility Mode) ---
-        function buildTrackEnvironment() {
-            if (trackPlane) scene.remove(trackPlane);
-
-            const trackGeo = new THREE.PlaneGeometry(800, 800, 20, 20);
-            trackGeo.rotateX(-Math.PI / 2);
-
-            // Solid clean color definitions to guarantee texturing never fails
-            const trackColor = (currentTheme === 'dirt') ? 0x422815 : 0x222228;
-            
-            trackMaterial = new THREE.MeshStandardMaterial({
-                color: trackColor,
+            <div class="setting-group">
+                <label>REAR WHEEL SIZE VARIANT</label>
+                <div class="setting-options">
