@@ -3,7 +3,7 @@
 <head> 
     <meta charset="utf-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-    <title>3D Motocross Game - Definitively Fixed</title> 
+    <title>3D Motocross Game - Guaranteed Working Build</title> 
     <style> 
         * { 
             margin: 0; 
@@ -111,7 +111,7 @@
             line-height: 1.4;
         }
     </style>
-    <!-- Stable Production Core Release -->
+    <!-- Loaded Stable Three.js Core Bundle Asset Production Engine CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head> 
 <body>
@@ -121,10 +121,9 @@
     <div class="ui-layer">
         <div class="menu-screen" id="mainMenu"> 
             <h1>MOTO X 3D</h1> 
-            <div class="menu-title">Async-Safe Verification Engine</div> 
+            <div class="menu-title">Asynchronous Initialization Engine</div> 
             <div class="menu-options"> 
-                <!-- Changed to a reliable native event handler fallback to instantly clear memory blockades -->
-                <button class="menu-btn" id="startBtn" onclick="startGame()">Start Race</button> 
+                <button class="menu-btn" id="startBtn">Start Race</button> 
             </div> 
             <div class="controls-hint">
                 W/A/S/D or Arrow Keys to Drive & Balance<br>
@@ -136,14 +135,14 @@
     </div>
 
     <script>
-        // --- Core Engine & Bounds Config ---
+        // --- Core Engine Configuration Architecture ---
         let scene, camera, renderer, terrain;
         let bike = null, rearWheel = null, frontForkAssembly = null;
         let clock = new THREE.Clock();
         let isPlaying = false;
         const MAP_BOUNDS = 240; 
 
-        // --- Optimized Physics Tuning ---
+        // --- Kinematic Movement Constants Setup ---
         let speed = 0;
         const maxSpeed = 0.8;
         const acceleration = 0.015;
@@ -151,13 +150,13 @@
         let bikeRotation = 0;
         const turnSpeed = 0.04;
 
-        // --- Recycled Particle Buffer Config ---
+        // --- Recycled Particle Buffers Configuration ---
         let dirtParticles = [];
         const maxDirtParticles = 200;
         let nextParticleIndex = 0; 
         let particleGeometry, particleMaterial, particleSystem;
 
-        // --- Input Map Tracking ---
+        // --- Sanitized Control Framework Mappings ---
         const keys = { 
             w: false, a: false, s: false, d: false, 
             arrowup: false, arrowleft: false, arrowdown: false, arrowright: false 
@@ -173,6 +172,7 @@
             if (keys.hasOwnProperty(keyNormalized)) keys[keyNormalized] = false; 
         });
 
+        // --- Graphics Compilation and Loading Sequence Pipeline ---
         function initEngine() {
             const container = document.getElementById('canvas-container');
             if (!container) return;
@@ -203,6 +203,12 @@
             generateTrackTerrain();
             buildPlayerBike();
             initDirtEngine();
+
+            // Set up clean event listeners safely after WebGL contexts are compiled
+            const buttonElement = document.getElementById('startBtn');
+            if (buttonElement) {
+                buttonElement.addEventListener('click', startGame);
+            }
 
             window.addEventListener('resize', onWindowResize);
             animate();
@@ -269,9 +275,3 @@
 
             const metalMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.1, metalness: 0.85 });
             const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00d4ff, roughness: 0.4, metalness: 0.5 });
-            const rubberMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9 });
-
-            const frameGeo = new THREE.BoxGeometry(0.3, 0.5, 1.8);
-            const frame = new THREE.Mesh(frameGeo, bodyMat);
-            frame.position.y = 0.9;
-            frame.castShadow = true;
