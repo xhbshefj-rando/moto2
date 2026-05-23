@@ -3,7 +3,7 @@
 <head> 
     <meta charset="utf-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-    <title>3D Moto Racing Arcade</title> 
+    <title>First Person 3D Moto Sim</title> 
     <style> 
         * { 
             margin: 0; 
@@ -15,121 +15,118 @@
             height: 100%;
             overflow: hidden;
             font-family: 'Arial', sans-serif; 
-            background: #0b0b1e;
+            background: #070714;
             user-select: none;
         } 
         
-        /* 3D Viewport Wrapper */
-        #game-viewport {
+        #game-container {
             width: 100%;
             height: 100%;
             position: absolute;
             overflow: hidden;
-            perspective: 600px; /* Forces real hardware 3D depth perspective */
         }
 
-        /* 3D Ground Horizon Track */
-        #track-ground {
+        /* 3D Sky Backdrop Canvas */
+        #sky-bg {
             position: absolute;
-            bottom: 0;
-            left: -50%;
-            width: 200%;
-            height: 60%;
-            background: #422815; /* Default rich dirt track tone */
-            transform-origin: top center;
-            transform: rotateX(65deg);
-            box-shadow: inset 0 20px 100px rgba(0,0,0,0.8);
-            overflow: hidden;
-            border-top: 4px solid #00d4ff;
-            transition: background 0.3s;
-        }
-
-        /* Speed Lines Grids (Simulates true high-speed movement forward) */
-        .track-grid-line {
-            position: absolute;
-            width: 8px;
-            height: 120px;
-            background: rgba(255, 170, 68, 0.4);
-            left: 50%;
-            top: -120px;
-            transform: translateX(-50%);
-        }
-
-        /* Visible Player Motorcycle Bike Box Graphic */
-        #player-bike-wrapper {
-            position: absolute;
-            bottom: 12%;
-            left: 50%;
-            width: 60px;
-            height: 110px;
-            transform: translateX(-50%);
-            transition: transform 0.05s linear, left 0.1s ease-out;
-            z-index: 100;
-        }
-
-        /* Bike Body Graphic Elements */
-        .bike-chassis {
-            position: absolute;
-            width: 16px;
-            height: 80px;
-            background: #00d4ff; /* Default Cyan body paint */
-            left: 22px;
-            top: 15px;
-            border-radius: 4px;
-            box-shadow: 0 10px 15px rgba(0,0,0,0.5);
-            transition: background 0.3s;
-        }
-
-        .bike-wheel-front {
-            position: absolute;
-            width: 12px;
-            height: 24px;
-            background: #111;
-            left: 24px;
             top: 0;
-            border-radius: 4px;
-            border: 2px solid #444;
-            transition: transform 0.1s ease;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: linear-gradient(to bottom, #020208, #11112b);
+            overflow: hidden;
         }
 
-        .bike-wheel-rear {
+        /* Dynamic Horizon Sun / Moon Aura Glow */
+        #horizon-glow {
             position: absolute;
-            width: 14px;
-            height: 28px;
-            background: #111;
-            left: 23px;
-            bottom: 0;
-            border-radius: 4px;
-            border: 2px solid #444;
-            transition: transform 0.2s linear;
-        }
-
-        .bike-handlebars {
-            position: absolute;
-            width: 50px;
-            height: 6px;
-            background: #888;
-            left: 5px;
-            top: 22px;
-            border-radius: 2px;
-        }
-
-        /* Flinging Dirt Particle Spawners */
-        .dirt-spray {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #5a381e;
-            border-radius: 50%;
-            opacity: 0;
-            bottom: 5%;
+            bottom: -50px;
             left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.3) 0%, rgba(0,0,0,0) 70%);
+        }
+
+        /* Hardware Accelerated Rendering Field for Pseudo-3D Track Segments */
+        #render-surface {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: #1e120a; /* Fallback Base Dirt */
+            overflow: hidden;
+        }
+
+        /* 1st Person Cockpit View Handlebars & Dashboard UI overlay */
+        #cockpit-view {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            width: 500px;
+            height: 300px;
             transform: translateX(-50%);
             pointer-events: none;
-            z-index: 50;
+            z-index: 500;
+            transition: transform 0.05s ease;
         }
 
-        /* UI HUD Layer Layout */
+        .handlebar-left {
+            position: absolute;
+            width: 180px;
+            height: 25px;
+            background: #222;
+            border: 4px solid #444;
+            left: 20px;
+            bottom: 120px;
+            transform: rotate(15deg);
+            border-radius: 10px 0 0 10px;
+        }
+
+        .handlebar-right {
+            position: absolute;
+            width: 180px;
+            height: 25px;
+            background: #222;
+            border: 4px solid #444;
+            right: 20px;
+            bottom: 120px;
+            transform: rotate(-15deg);
+            border-radius: 0 10px 10px 0;
+        }
+
+        .bike-fairing-center {
+            position: absolute;
+            width: 160px;
+            height: 140px;
+            background: #00d4ff; /* Custom Paint Panel */
+            bottom: 0;
+            left: 170px;
+            border-radius: 50px 50px 0 0;
+            border: 5px solid #111;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+
+        .digital-dash {
+            position: absolute;
+            width: 100%;
+            height: 60px;
+            background: #111;
+            bottom: 0;
+            border-top: 3px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #00d4ff;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 1.2em;
+            text-shadow: 0 0 5px #00d4ff;
+        }
+
+        /* Custom UI HUD Overlays */
         .ui-layer {
             position: absolute;
             top: 0;
@@ -140,7 +137,7 @@
             pointer-events: none;
         }
 
-        .hud-panel {
+        .hud-display {
             position: absolute;
             top: 20px;
             left: 20px;
@@ -148,14 +145,13 @@
             font-size: 1.8em;
             font-weight: bold;
             font-family: monospace;
-            background: rgba(0,0,0,0.7);
-            padding: 10px 20px;
+            background: rgba(0,0,0,0.75);
+            padding: 12px 25px;
             border-radius: 8px;
-            border: 1px solid rgba(0,212,255,0.3);
-            text-shadow: 0 0 10px rgba(0,212,255,0.5);
+            border: 1px solid rgba(0,212,255,0.4);
+            text-shadow: 0 0 8px rgba(0,212,255,0.6);
         }
 
-        /* Settings Display Button Frame */
         .settings-btn {
             position: absolute;
             top: 20px;
@@ -170,7 +166,7 @@
             text-transform: uppercase;
             border-radius: 8px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.2s;
         }
 
         .settings-btn:hover {
@@ -179,7 +175,7 @@
             box-shadow: 0 0 15px #00d4ff;
         }
 
-        /* Settings Drop Window Overlay */
+        /* Option Customizer Window Overlay */
         .settings-panel {
             position: absolute;
             top: 50%;
@@ -192,7 +188,7 @@
             border-radius: 15px;
             padding: 25px;
             color: #fff;
-            display: none; /* Controlled instantly via absolute block displays toggled below */
+            display: none;
             box-shadow: 0 0 40px rgba(0, 212, 255, 0.5);
             pointer-events: auto;
         }
@@ -205,7 +201,7 @@
             text-align: center;
             color: #00d4ff;
             margin-bottom: 20px;
-            font-size: 1.5em;
+            font-size: 1.4em;
             text-transform: uppercase;
         }
 
@@ -266,62 +262,69 @@
             font-size: 0.85em;
             color: #aaa;
             line-height: 1.4;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.8);
             padding: 12px 18px;
             border-radius: 8px;
             border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        /* 3D Dynamic Drawing Canvas Elements styling */
+        .road-slice {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 2px;
         }
     </style>
 </head> 
 <body>
 
-    <!-- Native Hardware Accelerated Viewport Layer -->
-    <div id="game-viewport">
-        <div id="track-ground">
-            <!-- Programmatic Speed Lines Arrays generated here dynamically -->
+    <div id="game-container">
+        <!-- Sky & Horizon -->
+        <div id="sky-bg">
+            <div id="horizon-glow"></div>
         </div>
         
-        <!-- Visible Motorcycle Mesh asset -->
-        <div id="player-bike-wrapper">
-            <div class="bike-wheel-front" id="w-front"></div>
-            <div class="bike-handlebars" id="h-bars"></div>
-            <div class="bike-chassis" id="b-chassis"></div>
-            <div class="bike-wheel-rear" id="w-rear"></div>
-        </div>
+        <!-- Hardware Render Canvas context for pseudo 3D track line calculation strips -->
+        <div id="render-surface"></div>
 
-        <!-- Pre-rendered Dirt spray asset blocks -->
-        <div class="dirt-spray" id="dust1"></div>
-        <div class="dirt-spray" id="dust2"></div>
-        <div class="dirt-spray" id="dust3"></div>
+        <!-- Cockpit Dashboard HUD Assets Layer -->
+        <div id="cockpit-view">
+            <div class="handlebar-left" id="l-bar"></div>
+            <div class="handlebar-right" id="r-bar"></div>
+            <div class="bike-fairing-center" id="b-fairing">
+                <div class="digital-dash" id="dash-rpm">RPM: 0</div>
+            </div>
+        </div>
     </div>
 
-    <!-- UI Controls Overlay -->
+    <!-- UI Overlay Layer HUD elements -->
     <div class="ui-layer">
-        <div class="hud-panel">SPEED: <span id="speedTxt">0</span> MPH</div>
+        <div class="hud-display">SPEED: <span id="speedTxt">0</span> MPH</div>
         
-        <button class="settings-btn" onclick="toggleSettingsMenu()">Settings</button>
+        <button class="settings-btn" onclick="toggleDashboardSettings()">Settings</button>
         
-        <!-- Safe Settings Customizer Box Window Container -->
         <div class="settings-panel" id="settingsPanel">
-            <h2>Simulator Configuration</h2>
+            <h2>Simulator Setup</h2>
             
             <div class="setting-group">
-                <label>TRACK ENVIRONMENT</label>
+                <label>TRACK BIOME ENVIRONMENT</label>
                 <div class="setting-options">
-                    <button class="opt-btn selected" id="env-dirt" onclick="updateEnvironment('dirt')">Dirt Track</button>
-                    <button class="opt-btn" id="env-street" onclick="updateEnvironment('street')">City Street</button>
+                    <button class="opt-btn selected" id="env-dirt" onclick="changeBiomeTheme('dirt')">Dirt Desert</button>
+                    <button class="opt-btn" id="env-street" onclick="changeBiomeTheme('street')">Neon Highway</button>
                 </div>
             </div>
             
             <div class="setting-group">
-                <label>MOTORCYCLE COLOR</label>
+                <label>BIKE COCKPIT TRIMS PAINT</label>
                 <div class="setting-options">
-                    <button class="opt-btn selected" id="col-cyan" onclick="updateBikeColor('#00d4ff', 'cyan')">Cyan</button>
-                    <button class="opt-btn" id="col-red" onclick="updateBikeColor('#ff3333', 'red')">Red</button>
-                    <button class="opt-btn" id="col-yellow" onclick="updateBikeColor('#ffcc00', 'yellow')">Yellow</button>
+                    <button class="opt-btn selected" id="col-cyan" onclick="changeFairingColor('#00d4ff', 'cyan')">Cyan</button>
+                    <button class="opt-btn" id="col-red" onclick="changeFairingColor('#ff3333', 'red')">Red</button>
+                    <button class="opt-btn" id="col-yellow" onclick="changeFairingColor('#ffcc00', 'yellow')">Yellow</button>
                 </div>
             </div>
 
             <div class="setting-group">
-                <label>REAR WHEEL SIZE VARIANT</label>
+                <label>SIMULATOR ENGINE TUNING</label>
                 <div class="setting-options">
+                    <button class="opt-btn selected" id="wh-normal" onclick="changeEngineTuning('normal')">Stock 250cc</button>
