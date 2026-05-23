@@ -3,232 +3,250 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Motocross - Camera Fixed</title>
+    <title>Arcade Motocross Simulator</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: sans-serif; }
-        #canvas-container { width: 100vw; height: 100vh; position: absolute; top:0; left:0; z-index: 1; }
-        #ui { position: absolute; top: 20px; left: 20px; color: white; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; }
-        h1 { margin: 0 0 5px 0; font-size: 24px; }
-        p { margin: 5px 0; font-size: 14px; }
-        .controls { margin-top: 15px; font-size: 12px; opacity: 0.9; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 5px; }
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { background: linear-gradient(to bottom, #87CEEB 0%, #b0e2ff 60%, #e0f6ff 100%); box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-radius: 8px; }
+        #ui { position: absolute; top: 30px; left: 30px; color: #222; font-weight: bold; pointer-events: none; }
+        h1 { margin: 0 0 5px 0; font-size: 24px; color: #111; }
+        .controls { margin-top: 15px; font-size: 13px; color: #444; background: rgba(255,255,255,0.7); padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     </style>
-    <script src="https://cloudflare.com"></script>
 </head>
 <body>
     <div id="ui">
-        <h1>3D MOTO SIM</h1>
+        <h1>MOTO ARCADE SIM</h1>
         <p>Speed: <span id="speed">0</span> km/h</p>
         <p>Airtime: <span id="airtime">0.0</span>s</p>
         <div class="controls">
-            <b>W / S</b> : Gas / Brake<br>
-            <b>A / D</b> : Lean & Turn<br>
-            <b>Arrow Up / Down</b> : Pitch Nose (In Air)
+            <b>W / S</b> : Throttle / Brake<br>
+            <b>A / D</b> : Lean Back / Forward (Air Control)
         </div>
     </div>
-    <div id="canvas-container"></div>
+    <canvas id="gameCanvas"></canvas>
 
     <script>
-        function nativeLerp(start, end, amt) { return (1 - amt) * start + amt * end; }
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
-        // --- MATH-BASED GROUND HEIGHTS ---
-        function getTrackHeight(x, z) {
-            if (Math.abs(x) > 500 || Math.abs(z) > 500) return 0;
-            var height = Math.sin(x * 0.02) * Math.cos(z * 0.02) * 10; // Basic track hills
-            height += Math.sin(z * 0.15) * 1.2; // Rhythmic whoops sections
+        // Set fixed resolution
+        canvas.width = 1024;
+        canvas.height = 576;
+
+        // --- GAME PHYSICS STATE ---
+        const bike = {
+            x: 200,
+            y: 100,
+            vx: 0,
+            vy: 0,
+            speed: 0,
+            targetSpeed: 0,
+            rotation: 0, // In radians
+            isGrounded: false,
+            airTime: 0,
+            radius: 18
+        };
+
+        const CONTROLS = { w: false, a: false, s: false, d: false };
+        const GRAVITY = 0.35;
+        const FRICTION = 0.98;
+        
+        // --- MATHEMATICAL TRACK PROFILE ---
+        // Generates rolling dirt terrain hills, massive jumps, and a rough landing zone
+        function getTrackHeight(x) {
+            // Base rolling hills layout
+            let height = 420 + Math.sin(x * 0.005) * 60;
             
-            // Large jump ramp section right ahead of starting zone
-            if (z > 30 && z < 150 && Math.abs(x) < 60) {
-                height += Math.sin((z - 30) * Math.PI / 120) * 20; 
+            // Large SX style step-up jump ramp
+            if (x > 500 && x < 800) {
+                height -= Math.sin((x - 500) * Math.PI / 300) * 110;
+            }
+            
+            // Continuous rhythmic bumps (Whoops section)
+            if (x > 1100 && x < 1800) {
+                height += Math.sin(x * 0.12) * 12;
+            }
+
+            // Big finish-line double jump
+            if (x > 2100 && x < 2400) {
+                height -= Math.sin((x - 2100) * Math.PI / 300) * 130;
             }
             return height;
         }
 
-        // --- VEHICLE INITIAL PHYSICS STATE ---
-        var bike = { 
-            x: 0, y: 15, z: -20, // Spawned close to center origin
-            vx: 0, vy: 0, vz: 0, 
-            speed: 0, heading: 0, pitch: 0, roll: 0, 
-            isGrounded: false, airTime: 0 
-        };
+        // --- INPUT HANDLING ---
+        window.addEventListener('keydown', (e) => { if (e.key.toLowerCase() in CONTROLS) CONTROLS[e.key.toLowerCase()] = true; });
+        window.addEventListener('keyup', (e) => { if (e.key.toLowerCase() in CONTROLS) CONTROLS[e.key.toLowerCase()] = false; });
 
-        var CONTROLS = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false };
-        var GRAVITY = 0.22;
-        var ACCELERATION = 0.12;
-        var MAX_SPEED = 1.6;
-        var FRICTION = 0.02;
+        const speedUI = document.getElementById('speed');
+        const airtimeUI = document.getElementById('airtime');
 
-        // --- ENGINE GENERATOR ---
-        var container = document.getElementById('canvas-container');
-        var scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB);
-        scene.fog = new THREE.FogExp2(0x87CEEB, 0.003);
-
-        var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
-        // Manual hard reset on camera start frame configuration to look directly forward
-        camera.position.set(0, 18, -30);
-
-        var renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        container.appendChild(renderer.domElement);
-
-        // --- LIGHTS ---
-        var ambient = new THREE.AmbientLight(0xffffff, 0.9);
-        scene.add(ambient);
-        var sun = new THREE.DirectionalLight(0xffffff, 1.2);
-        sun.position.set(100, 300, 100);
-        scene.add(sun);
-
-        // --- PROCEDURAL GENERATED GRID MATERIAL ---
-        var canvasTex = document.createElement('canvas');
-        canvasTex.width = 64;
-        canvasTex.height = 64;
-        var ctx = canvasTex.getContext('2d');
-        ctx.fillStyle = '#9f5f3f'; // Distinct dark orange dirt color
-        ctx.fillRect(0, 0, 64, 64);
-        ctx.strokeStyle = '#7c4324'; // High visibility grid lines for motion perspective
-        ctx.lineWidth = 3;
-        ctx.strokeRect(0, 0, 64, 64);
-        
-        var texture = new THREE.CanvasTexture(canvasTex);
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-        texture.repeat.set(200, 200); 
-
-        // --- GENERATE TRACK GRID MESH ---
-        var terrainGeo = new THREE.PlaneGeometry(1000, 1000, 90, 90);
-        terrainGeo.rotateX(-Math.PI / 2); 
-        var posAttribute = terrainGeo.attributes.position;
-        for (var i = 0; i < posAttribute.count; i++) {
-            var vx = posAttribute.getX(i);
-            var vz = posAttribute.getZ(i);
-            posAttribute.setY(i, getTrackHeight(vx, vz));
-        }
-        terrainGeo.computeVertexNormals();
-
-        var terrainMat = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9 });
-        var terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
-        scene.add(terrainMesh);
-
-        // --- GRAPHICS: HIGH-CONTRAST MOTO BIKE ASSEMBLY ---
-        var bikeGroup = new THREE.Group();
-        
-        var chassisMat = new THREE.MeshStandardMaterial({ color: 0x111111 }); // Black metal core
-        var plasticMat = new THREE.MeshStandardMaterial({ color: 0xff4500 }); // Neon Racing Orange plastics
-        var tireMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1.0 }); // Deep dark tires
-        var spokeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true }); // Bright white wheel rims
-
-        // Main Engine Base Frame Box
-        var coreChassis = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 1.4), chassisMat);
-        coreChassis.position.y = 0.6;
-        bikeGroup.add(coreChassis);
-
-        // Racing Plastics body shell
-        var plastics = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.3, 1.1), plasticMat);
-        plastics.position.set(0, 0.85, -0.1);
-        bikeGroup.add(plastics);
-
-        // Handlebars cross bar structure
-        var barGeom = new THREE.CylinderGeometry(0.03, 0.03, 1.1);
-        barGeom.rotateZ(Math.PI / 2);
-        var bars = new THREE.Mesh(barGeom, chassisMat);
-        bars.position.set(0, 1.25, 0.4);
-        bikeGroup.add(bars);
-
-        // Front Wheel Structure
-        var wheelGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.28, 12);
-        wheelGeo.rotateZ(Math.PI / 2);
-        
-        var frontWheel = new THREE.Mesh(wheelGeo, tireMat);
-        frontWheel.position.set(0, 0.5, 0.7);
-        var frontSpokes = new THREE.Mesh(wheelGeo, spokeMat);
-        frontWheel.add(frontSpokes); 
-        bikeGroup.add(frontWheel);
-
-        // Rear Wheel Structure
-        var rearWheel = new THREE.Mesh(wheelGeo, tireMat);
-        rearWheel.position.set(0, 0.5, -0.7);
-        var rearSpokes = new THREE.Mesh(wheelGeo, spokeMat);
-        rearWheel.add(rearSpokes);
-        bikeGroup.add(rearWheel);
-
-        scene.add(bikeGroup);
-
-        // --- HARDWARE CONFIG DETECTORS ---
-        window.addEventListener('keydown', function(e) { if(e.key in CONTROLS) CONTROLS[e.key] = true; });
-        window.addEventListener('keyup', function(e) { if(e.key in CONTROLS) CONTROLS[e.key] = false; });
-        window.addEventListener('resize', function() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        var speedUI = document.getElementById('speed');
-        var airtimeUI = document.getElementById('airtime');
-
-        // --- RUNNING FRAME LOOP ---
-        function loop() {
-            requestAnimationFrame(loop);
-
-            // 1. Steering calculations
-            if (CONTROLS.a) {
-                if (bike.isGrounded) bike.heading += 0.026 * (bike.speed / MAX_SPEED + 0.2);
-                bike.roll = nativeLerp(bike.roll, 0.38, 0.1);
-            } else if (CONTROLS.d) {
-                if (bike.isGrounded) bike.heading -= 0.026 * (bike.speed / MAX_SPEED + 0.2);
-                bike.roll = nativeLerp(bike.roll, -0.38, 0.1);
-            } else {
-                bike.roll = nativeLerp(bike.roll, 0, 0.15);
-            }
-
-            // 2. Air control layout inputs
-            if (!bike.isGrounded) {
-                if (CONTROLS.ArrowUp) bike.pitch -= 0.038;
-                if (CONTROLS.ArrowDown) bike.pitch += 0.038;
-            }
-
-            // 3. Engine Throttle modifiers
+        // --- CORE SIMULATION LOOP ---
+        function update() {
+            // 1. Throttle / Braking power inputs
             if (CONTROLS.w) {
-                bike.speed = Math.min(bike.speed + ACCELERATION, MAX_SPEED);
+                bike.targetSpeed = 7;
             } else if (CONTROLS.s) {
-                bike.speed = Math.max(bike.speed - ACCELERATION * 1.3, -MAX_SPEED * 0.25);
+                bike.targetSpeed = -2;
             } else {
-                bike.speed = nativeLerp(bike.speed, 0, FRICTION);
+                bike.targetSpeed = 0;
+            }
+            // Linear acceleration step
+            bike.speed += (bike.targetSpeed - bike.speed) * 0.05;
+
+            // 2. Air control layout leaning (Pitching front wheel up or down)
+            if (!bike.isGrounded) {
+                if (CONTROLS.a) bike.rotation -= 0.04; // Lean back / pull up front wheel
+                if (CONTROLS.d) bike.rotation += 0.04; // Lean forward / push down front wheel
             }
 
-            // 4. Momentum tracking transformations
+            // 3. Movement and Vector Momentum
             if (bike.isGrounded) {
-                bike.vx = Math.sin(bike.heading) * bike.speed;
-                bike.vz = Math.cos(bike.heading) * bike.speed;
-                bike.vy = 0;
+                // Drive along the slope vector direction
+                bike.vx = Math.cos(bike.rotation) * bike.speed;
+                bike.vy = Math.sin(bike.rotation) * bike.speed;
             } else {
-                bike.vy -= GRAVITY * 0.13; 
+                // Free falling physics application
+                bike.vy += GRAVITY;
+                bike.vx *= FRICTION;
             }
 
             bike.x += bike.vx;
             bike.y += bike.vy;
-            bike.z += bike.vz;
 
-            // 5. Collision height matching snap properties
-            var groundLevel = getTrackHeight(bike.x, bike.z);
-            var groundClearance = 0.5;
+            // Loop track boundaries smoothly
+            if (bike.x > 3000) bike.x = 100;
+            if (bike.x < 0) bike.x = 10;
 
-            if (bike.y <= groundLevel + groundClearance) {
-                bike.y = groundLevel + groundClearance;
-                var lookAheadHeight = getTrackHeight(bike.x + Math.sin(bike.heading) * 2, bike.z + Math.cos(bike.heading) * 2);
-                var planeSlope = Math.atan2(groundLevel - lookAheadHeight, 2);
-                
-                bike.pitch = nativeLerp(bike.pitch, planeSlope, 0.25);
+            // 4. Ground Collision snap checks
+            const groundY = getTrackHeight(bike.x);
+            
+            if (bike.y >= groundY - bike.radius) {
+                // Landed on the floor mesh boundary
+                bike.y = groundY - bike.radius;
+                bike.vy = 0;
+
+                // Dynamically find slope vector layout to tilt chassis
+                const lookAheadX = bike.x + 15;
+                const lookAheadY = getTrackHeight(lookAheadX);
+                const groundSlope = Math.atan2(lookAheadY - groundY, lookAheadX - bike.x);
+
+                if (!bike.isGrounded) {
+                    // Explode or crash check if rider lands horribly upside down
+                    let landingAngleDiff = Math.abs(bike.rotation - groundSlope);
+                    while (landingAngleDiff > Math.PI) landingAngleDiff -= Math.PI * 2;
+                    
+                    // Crash stabilization reset
+                    if (Math.abs(landingAngleDiff) > 1.2) {
+                        bike.speed = 0; // Simple penalty for bad landings
+                    }
+                }
+
+                // Snap chassis rotation cleanly to match the ground hills slope
+                bike.rotation = groundSlope;
                 bike.isGrounded = true;
                 bike.airTime = 0;
             } else {
+                // Actor is airborne
                 bike.isGrounded = false;
                 bike.airTime += 1 / 60;
             }
 
-            // Enforce hard boundary checks
-            bike.x = Math.max(-470, Math.min(470, bike.x));
-            bike.z = Math.max(-470, Math.min(470, bike.z));
+            // --- DRAWING GRAPHICS ---
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 6. Update bike visual assets position
-            bikeGroup.position.set(bike.x, bike.y, bike.z);
+            // Dynamic tracking side-scrolling camera window offset view
+            const cameraX = bike.x - 300;
+
+            // Draw Sun Visual Accent
+            ctx.fillStyle = '#FFFACD';
+            ctx.beginPath();
+            ctx.arc(850, 90, 50, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw Terrain Dirt Line
+            ctx.fillStyle = '#9f5f3f';
+            ctx.strokeStyle = '#6d3c22';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            
+            // Build terrain line cross section relative to camera viewport frames
+            ctx.moveTo(0, canvas.height);
+            for (let screenX = 0; screenX <= canvas.width; screenX += 5) {
+                let worldX = screenX + cameraX;
+                let worldY = getTrackHeight(worldX);
+                ctx.lineTo(screenX, worldY);
+            }
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw Grid Markings on Track for Speed Visual Perspective
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 2;
+            for (let gridX = Math.floor(cameraX / 60) * 60; gridX < cameraX + canvas.width; gridX += 60) {
+                let screenGridX = gridX - cameraX;
+                ctx.beginPath();
+                ctx.moveTo(screenGridX, getTrackHeight(gridX));
+                ctx.lineTo(screenGridX, canvas.height);
+                ctx.stroke();
+            }
+
+            // --- DRAW ENGINE MOTORCYCLE GRAPHICS ---
+            ctx.save();
+            // Translate drawing grid coordinates directly directly over bike epicenter location
+            ctx.translate(bike.x - cameraX, bike.y);
+            ctx.rotate(bike.rotation);
+
+            // 1. Thick Deep Tread Tires
+            ctx.fillStyle = '#222';
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            // Rear Wheel
+            ctx.beginPath(); ctx.arc(-22, 5, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            // Front Wheel
+            ctx.beginPath(); ctx.arc(22, 5, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+            // 2. High Stability Silver Suspension swingarms forks
+            ctx.strokeStyle = '#b0b0b0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-22, 5); ctx.lineTo(-5, -5); // Rear suspension link
+            ctx.moveTo(22, 5); ctx.lineTo(8, -18);   // Front fork structure
+            ctx.stroke();
+
+            // 3. Main Dark Metallic Frame Chassis Case
+            ctx.fillStyle = '#111';
+            ctx.fillRect(-12, -10, 22, 12);
+
+            // 4. Factory Racing Orange Plastics Body Shell
+            ctx.fillStyle = '#ff4500';
+            ctx.beginPath();
+            ctx.moveTo(-18, -10);
+            ctx.lineTo(10, -14);
+            ctx.lineTo(16, -8);
+            ctx.lineTo(-10, -5);
+            ctx.closePath();
+            ctx.fill();
+
+            // 5. Handlebars
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(6, -18);
+            ctx.lineTo(12, -22);
+            ctx.stroke();
+
+            ctx.restore();
+
+            // --- REFRESH INDICATOR VALUE DATA OVERLAYS ---
+            speedUI.textContent = Math.round(Math.abs(bike.speed) * 18);
+            airtimeUI.textContent = bike.airTime.toFixed(1);
+
+            requestAnimationFrame(update);
+        }
+
+        // Initialize execution setup loop sequence
+        update();
+    </script>
+</body>
+</html>
