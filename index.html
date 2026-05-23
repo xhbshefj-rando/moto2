@@ -1,260 +1,165 @@
-<!doctype html> 
-<html lang="en"> 
-<head> 
-    <meta charset="utf-8"> 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-    <title>MX Bikes - Web Simulator Edition</title> 
-    <style> 
-        * { 
-            margin: 0; 
-            padding: 0; 
-            box-sizing: border-box; 
-        } 
-        body, html { 
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: #05050d;
-            font-family: 'Arial', sans-serif;
-            user-select: none;
-        } 
-        #canvas-container {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-        /* Dashboard Customizer Panel */
-        .ui-panel {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-        .settings-btn {
-            background: rgba(25ages, 160, 0, 0.2);
-            background: rgba(255, 102, 0, 0.2);
-            border: 2px solid #ff5500;
-            color: #ff5500;
-            padding: 10px 20px;
-            font-size: 0.85em;
-            font-weight: bold;
-            text-transform: uppercase;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .settings-btn:hover {
-            background: #ff5500;
-            color: #000;
-            box-shadow: 0 0 15px #ff5500;
-        }
-        .menu-box {
-            position: absolute;
-            top: 50px;
-            right: 0;
-            width: 260px;
-            background: rgba(10, 10, 15, 0.98);
-            border: 2px solid #ff5500;
-            border-radius: 8px;
-            padding: 20px;
-            color: #fff;
-            display: none;
-            box-shadow: 0 0 25px rgba(ff, 85, 0, 0.4);
-        }
-        .menu-box.active {
-            display: block;
-        }
-        .menu-box h3 {
-            text-align: center;
-            color: #ff5500;
-            margin-bottom: 15px;
-            font-size: 1.1em;
-            text-transform: uppercase;
-        }
-        .btn-group {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 12px;
-        }
-        .opt-btn {
-            flex: 1;
-            padding: 8px 2px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid #444;
-            color: #fff;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.75em;
-            font-weight: bold;
-            text-align: center;
-        }
-        .opt-btn.selected {
-            background: rgba(255, 85, 0, 0.25);
-            border-color: #ff5500;
-            color: #ff5500;
-        }
-        .hint-text {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.8em;
-            background: rgba(0,0,0,0.8);
-            padding: 10px 15px;
-            border-radius: 6px;
-            pointer-events: none;
-            line-height: 1.4;
-            border: 1px solid rgba(255, 85, 0, 0.2);
-        }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Browser Motocross</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        #ui { position: absolute; top: 20px; left: 20px; color: white; text-shadow: 2px 2px 4px #000; pointer-events: none; }
+        h1 { margin: 0 0 5px 0; font-size: 24px; }
+        p { margin: 5px 0; font-size: 14px; }
+        .controls { margin-top: 15px; font-size: 12px; opacity: 0.8; }
     </style>
-</head> 
+    <!-- Include Three.js via CDN -->
+    <script src="https://cloudflare.com"></script>
+</head>
 <body>
-
-    <div id="canvas-container">
-        <!-- Single Canvas Architecture ensures zero layout rendering failures -->
-        <canvas id="gameCanvas"></canvas>
-    </div>
-
-    <div class="ui-panel">
-        <button class="settings-btn" onclick="toggleSettingsMenu()">Bike Settings</button>
-        <div class="menu-box" id="settingsMenu">
-            <h3>Garage Setup</h3>
-            
-            <div style="margin-bottom: 8px;">
-                <label style="display:block; font-size:0.7em; color:#aaa; margin-bottom:4px; font-weight:bold;">TRACK BIOME</label>
-                <div class="btn-group">
-                    <button class="opt-btn selected" id="env-dirt" onclick="changeTrackTheme('dirt')">Red Clay</button>
-                    <button class="opt-btn" id="env-street" onclick="changeTrackTheme('street')">Supercross</button>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 8px;">
-                <label style="display:block; font-size:0.7em; color:#aaa; margin-bottom:4px; font-weight:bold;">PLASTICS COLOR</label>
-                <div class="btn-group">
-                    <button class="opt-btn selected" id="col-orange" onclick="changeBikeColor('#ff5500', 'orange')">Orange</button>
-                    <button class="opt-btn" id="col-green" onclick="changeBikeColor('#33cc33', 'green')">Green</button>
-                    <button class="opt-btn" id="col-blue" onclick="changeBikeColor('#0066ff', 'blue')">Blue</button>
-                </div>
-            </div>
-
-            <div>
-                <label style="display:block; font-size:0.7em; color:#aaa; margin-bottom:4px; font-weight:bold;">ENGINE POWER</label>
-                <div class="btn-group">
-                    <button class="opt-btn selected" id="pow-250" onclick="changeEngineClass('normal')">250cc 4T</button>
-                    <button class="opt-btn" id="pow-450" onclick="changeEngineClass('monster')">450cc Factory</button>
-                </div>
-            </div>
+    <div id="ui">
+        <h1>3D MOTO SIM</h1>
+        <p>Speed: <span id="speed">0</span> km/h</p>
+        <p>Airtime: <span id="airtime">0.0</span>s</p>
+        <div class="controls">
+            <b>W / S</b> : Throttle / Brake<br>
+            <b>A / D</b> : Steering<br>
+            <b>Arrow Up / Down</b> : Lean Forward / Back (Pitch)
         </div>
     </div>
-
-    <div class="hint-text">
-        <strong>MX Bikes Controls:</strong> Hold <strong>W</strong> or <strong>Up Arrow</strong> to roll on throttle.<br>
-        Hold <strong>A / D</strong> or <strong>Left / Right Arrows</strong> to steer and lean your rider geometry.<br>
-        Press <strong>R</strong> to recalibrate track positions immediately back to the center line.
-    </div>
+    <div id="canvas-container"></div>
 
     <script>
-        // --- Core Framework Anchors ---
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        let isSettingsOpen = false;
-        let activeTheme = 'dirt';
-        let engineClass = 'normal';
-        let bikeColor = '#ff5500'; // Default Factory MX Orange
+        // --- GAME STATE & PHYSICS CONSTANTS ---
+        const bike = {
+            x: 0, y: 5, z: 0,
+            vx: 0, vy: 0, vz: 0,
+            speed: 0,
+            heading: 0,
+            pitch: 0,
+            roll: 0,
+            isGrounded: false,
+            airTime: 0
+        };
 
-        // --- Core Simulator Kinematics States ---
-        let rawSpeed = 0;
-        let topSpeedLimit = 22;
-        let totalDistanceCovered = 0;
-        let trackLateralOffset = 0; // Rider position relative to track center line
-        let ongoingRoadCurve = 0;
-        
-        // --- Interpolated Lean Angle Aggregators ---
-        let targetLean = 0;
-        let currentLeanLerp = 0;
+        const CONTROLS = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false };
+        const GRAVITY = 0.25;
+        const ACCELERATION = 0.15;
+        const MAX_SPEED = 1.2;
+        const FRICTION = 0.02;
+        const TRACK_SIZE = 1000;
 
-        // --- Keyboard Controls Framework Mapping ---
-        const controlKeys = { w: false, s: false, a: false, d: false, arrowup: false, arrowdown: false, arrowleft: false, arrowright: false };
+        // --- SETUP THREE.JS SCENE ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Sky blue
+        scene.fog = new THREE.FogExp2(0x87CEEB, 0.005);
 
-        window.addEventListener('keydown', (e) => {
-            if (isSettingsOpen) return;
-            const keyNormalized = e.key.toLowerCase();
-            if (keyNormalized === 'r') { clearSimulationData(); return; }
-            if (controlKeys.hasOwnProperty(keyNormalized)) controlKeys[keyNormalized] = true;
-        });
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
 
-        window.addEventListener('keyup', (e) => {
-            const keyNormalized = e.key.toLowerCase();
-            if (controlKeys.hasOwnProperty(keyNormalized)) controlKeys[keyNormalized] = false;
-        });
+        // --- LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xfffaed, 0.8);
+        dirLight.position.set(100, 300, 100);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
 
-        function adjustCanvasScaling() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+        // --- GENERATE PERLIN-LIKE TRACK TERRAIN ---
+        const geometry = new THREE.PlaneGeometry(TRACK_SIZE, TRACK_SIZE, 120, 120);
+        geometry.rotateX(-Math.PI / 2); // Make it horizontal
+
+        const pos = geometry.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+            let x = pos.getX(i);
+            let z = pos.getZ(i);
+            
+            // Create modular tracks: valleys, massive jump ramps, and whoops
+            let height = Math.sin(x * 0.02) * Math.cos(z * 0.02) * 15; // Rolling hills
+            height += Math.sin(z * 0.1) * 2; // Rhythmic whoops sections
+            
+            // Add specific massive jump tables
+            if (Math.abs(x) < 40 && z > 50 && z < 150) {
+                height += Math.sin((z - 50) * Math.PI / 100) * 18;
+            }
+            if (Math.abs(z) < 40 && x > -200 && x = 120 || row < 0 || row >= 120) return 0;
+            
+            // Direct vertex lookup calculation for speed performance
+            const index = (row * 121) + col;
+            if (geometry.attributes.position.getY(index)) {
+                return geometry.attributes.position.getY(index);
+            }
+            return 0;
         }
-        window.addEventListener('resize', adjustCanvasScaling);
 
-        // --- Core Graphics Rendering & Physics Frame Tick Loop ---
-        function executeSimulationTick() {
-            requestAnimationFrame(executeSimulationTick);
+        // --- INPUT DETECTORS ---
+        window.addEventListener('keydown', (e) => { if(e.key in CONTROLS) CONTROLS[e.key] = true; });
+        window.addEventListener('keyup', (e) => { if(e.key in CONTROLS) CONTROLS[e.key] = false; });
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
 
-            if (isSettingsOpen) return;
+        // --- UI TEXT COUNTERS ---
+        const speedText = document.getElementById('speed');
+        const airtimeText = document.getElementById('airtime');
 
-            // Extract User Controls Mapping Flags
-            const inputThrottle = controlKeys.w || controlKeys.arrowup;
-            const inputBrake = controlKeys.s || controlKeys.arrowdown;
-            const inputLeft = controlKeys.a || controlKeys.arrowleft;
-            const inputRight = controlKeys.d || controlKeys.arrowright;
+        // --- MAIN GAME LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
 
-            // 1. Process Advanced MX Acceleration Physics Equations
-            const bikePowerCoefficient = (engineClass === 'monster') ? 0.38 : 0.22;
-            if (inputThrottle) {
-                rawSpeed = Math.min(rawSpeed + bikePowerCoefficient, topSpeedLimit);
-            } else if (inputBrake) {
-                rawSpeed = Math.max(rawSpeed - 0.7, 0);
+            // 1. Handle Steering & Lean Input
+            if (CONTROLS.a) {
+                if (bike.isGrounded) bike.heading += 0.03 * (bike.speed / MAX_SPEED + 0.2);
+                bike.roll = THREE.MathUtils.lerp(bike.roll, 0.4, 0.1);
+            } else if (CONTROLS.d) {
+                if (bike.isGrounded) bike.heading -= 0.03 * (bike.speed / MAX_SPEED + 0.2);
+                bike.roll = THREE.MathUtils.lerp(bike.roll, -0.4, 0.1);
             } else {
-                rawSpeed *= 0.95; // Atmospheric engine backpressure air friction drag drop
+                bike.roll = THREE.MathUtils.lerp(bike.roll, 0, 0.1);
             }
 
-            totalDistanceCovered += rawSpeed;
-
-            // Generate organic winding curves based on absolute distance traveled
-            ongoingRoadCurve = Math.sin(totalDistanceCovered * 0.001) * 2.5 + Math.cos(totalDistanceCovered * 0.0004) * 1.5;
-
-            // 2. Pro Cockpit Lean Simulation Logic
-            targetLean = 0;
-            if (inputLeft && rawSpeed > 0.5) {
-                trackLateralOffset -= rawSpeed * 0.15;
-                targetLean = -24; // Handlebar lean limits matrix angle rotation
-            } else if (inputRight && rawSpeed > 0.5) {
-                trackLateralOffset += rawSpeed * 0.15;
-                targetLean = 24;
+            // Air Control Pitching (Lean Forward / Back)
+            if (!bike.isGrounded) {
+                if (CONTROLS.ArrowUp) bike.pitch -= 0.04;
+                if (CONTROLS.ArrowDown) bike.pitch += 0.04;
             }
 
-            // Centrifugal Balance Drift (Track curves slide bike coordinates outwards)
-            trackLateralOffset -= (ongoingRoadCurve * rawSpeed * 0.045);
-
-            // Handle road shoulder friction boundary rules slowdowns
-            if (trackLateralOffset < -110 || trackLateralOffset > 110) {
-                rawSpeed = Math.max(rawSpeed - 0.5, 3.5);
+            // 2. Handle Throttle & Braking
+            if (CONTROLS.w) {
+                bike.speed = Math.min(bike.speed + ACCELERATION, MAX_SPEED);
+            } else if (CONTROLS.s) {
+                bike.speed = Math.max(bike.speed - ACCELERATION * 1.5, -MAX_SPEED * 0.3);
+            } else {
+                bike.speed = THREE.MathUtils.lerp(bike.speed, 0, FRICTION);
             }
 
-            // Interpolate leaning angles smoothly (Clears visual shaking artifacts)
-            currentLeanLerp = currentLeanLerp * 0.82 + targetLean * 0.18;
-
-            // High throttle engine motor vibration loops simulation variables
-            let tremorWeightX = 0, tremorWeightY = 0;
-            if (rawSpeed > 1) {
-                const ratio = (rawSpeed / topSpeedLimit);
-                tremorWeightX = (Math.random() - 0.5) * (14 * ratio);
-                tremorWeightY = (Math.random() - 0.5) * (8 * ratio);
+            // 3. Apply Directional Momentum Vectors
+            if (bike.isGrounded) {
+                bike.vx = Math.sin(bike.heading) * bike.speed;
+                bike.vz = Math.cos(bike.heading) * bike.speed;
+            } else {
+                // Drag reduction in air
+                bike.vx = THREE.MathUtils.lerp(bike.vx, Math.sin(bike.heading) * bike.speed, 0.02);
+                bike.vz = THREE.MathUtils.lerp(bike.vz, Math.cos(bike.heading) * bike.speed, 0.02);
+                bike.vy -= GRAVITY * 0.1; // Apply Gravity weight
             }
 
+            bike.x += bike.vx;
+            bike.y += bike.vy;
+            bike.z += bike.vz;
+
+            // 4. Ground Collision & Suspension Calculation
+            const currentGroundHeight = getTerrainHeight(bike.x, bike.z);
+            const bikeRadius = 0.4; // Height off center pivot to bottom of wheels
+
+            if (bike.y <= currentGroundHeight + bikeRadius) {
+                // Snap to ground surface mesh
+                bike.y = currentGroundHeight + bikeRadius;
+                
